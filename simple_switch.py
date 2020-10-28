@@ -37,8 +37,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
 
         self.config_path =  '/home/ubuntu/ryu/ryu/app/dsSatellite/config.json'
-        self.config = Config.Config()
-        Config.loadjson(self.config, self.config_path)
+        self.config = Config.Config(self.config_path)
 
         self.current_topo
         self.time_expand_topo = virtue_topo.create_virtue_topo(self.config)
@@ -54,14 +53,14 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.sleepTime = 1.0
         self.bw = 500
         self.threashold = 0.8
-        self.arp_table = {}
-        self.arp_table = {self.config['sat']['group1']['host']['ip_addr']: self.config['sat']['group1']['host']['eth0'],
-                          self.config['sat']['group2']['host']['ip_addr']: self.config['sat']['group2']['host']['eth0'],
-                          self.config['sat']['group3']['host']['ip_addr']: self.config['sat']['group3']['host']['eth0'],
-                          self.config['sat']['sr1']['host']['ip_addr']: self.config['sat']['sr1']['host']['eth0'],
-                          self.config['sat']['sr2']['host']['ip_addr']: self.config['sat']['sr2']['host']['eth0'],
-                          self.config['sat']['sr3']['host']['ip_addr']: self.config['sat']['sr3']['host']['eth0'],
-                          self.config['dc']['host']['ip_addr']: self.config['dc']['host']['eth0']}
+
+        self.arp_table = {self.config.json['sat']['group1']['host']['ip_addr']: self.config.json['sat']['group1']['host']['eth0'],
+                          self.config.json['sat']['group2']['host']['ip_addr']: self.config.json['sat']['group2']['host']['eth0'],
+                          self.config.json['sat']['group3']['host']['ip_addr']: self.config.json['sat']['group3']['host']['eth0'],
+                          self.config.json['sat']['sr1']['host']['ip_addr']: self.config.json['sat']['sr1']['host']['eth0'],
+                          self.config.json['sat']['sr2']['host']['ip_addr']: self.config.json['sat']['sr2']['host']['eth0'],
+                          self.config.json['sat']['sr3']['host']['ip_addr']: self.config.json['sat']['sr3']['host']['eth0'],
+                          self.config.json['dc']['host']['ip_addr']: self.config.json['dc']['host']['eth0']}
 
         self.client = {'00:00:00:00:00:01':[1, '10.0.0.1'],
                        '00:00:00:00:00:02':[2, '10.0.0.2'],
@@ -127,13 +126,13 @@ class SimpleSwitch13(app_manager.RyuApp):
         if ev.msg.msg_len < ev.msg.total_len:
             self.logger.debug("packet truncated: only %s of %s bytes",
                               ev.msg.msg_len, ev.msg.total_len)
-        msg = ev.msg
-        dp = msg.datapath
+        
+        dp = ev.msg.datapath
         ofproto = dp.ofproto
         parser = dp.ofproto_parser
-        in_port = msg.match['in_port']
+        in_port = ev.msg.match['in_port']
 
-        pkt = packet.Packet(msg.data)
+        pkt = packet.Packet(ev.msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
 
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
@@ -146,7 +145,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         if (eth.ethertype == ether_types.ETH_TYPE_IP):
             self.logger.info("This is packet in message")
             #self.logger.info(pkt)
-            self.handle_ip(dp, msg)
+            self.handle_ip(dp, ev.msg)
 
     @set_ev_cls(ofp_event.EventOFPStateChange,
                 [MAIN_DISPATCHER, DEAD_DISPATCHER])
@@ -293,11 +292,9 @@ class SimpleSwitch13(app_manager.RyuApp):
         # checking if it's arp packet return None if not arp packet
         if pkt_arp.opcode != arp.ARP_REQUEST:
             return
-
         # checking if the destination address exists in arp_table returns NONE otherwise
         if self.arp_table.get(pkt_arp.dst_ip) == None:
             return
-
         get_mac = self.arp_table[pkt_arp.dst_ip]
 
         pkt = packet.Packet()
