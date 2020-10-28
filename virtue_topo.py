@@ -38,7 +38,7 @@ class virtue_topo(nx.MultiGraph):
             time_ = datetime(year=2020,month=5,day=8,hour=int(data[0]),minute=int(data[1]))
             self.add_edge(node0, node1, time = time_, weight = data[2])
         
-    def topo(self, hour_, minute_):
+    def slice_topo(self, hour_, minute_):
         time = datetime(year=2020,month=5,day=8,hour=int(hour_),minute=int(minute_))
         GG = nx.Graph(time=time)
         for node in self.netnode:
@@ -46,17 +46,18 @@ class virtue_topo(nx.MultiGraph):
                  GG.add_node(node, type='host')
             else:
                 GG.add_node(node, type='sat')
+        self.slice_topo_link(GG, time)
 
+        return GG
+
+    def slice_topo_link(self, GG_,time_):
         for n, nbrs in self.adjacency():
-            #print(n,nbrs)
             for nbr, edict in nbrs.items():
-                weight = [d['weight'] for d in edict.values() if d['time'] == time]
-                #print(n,nbr,weight)
+                weight = [d['weight'] for d in edict.values() if d['time'] == time_]
                 if weight==[]:
                     pass
                 else:
-                    GG.add_edge(n, nbr, weight = weight[0])
-        return GG 
+                    GG_.add_edge(n, nbr, weight = weight[0])
         
 
 def create_virtue_topo(config):
@@ -79,10 +80,11 @@ def show_topo(GG_):
     plt.show()
 
 def main():
+    config_path =  '/home/ubuntu/ryu/ryu/app/dsSatellite/config.json'
     config = Config.Config()
-    Config.loadjson(config, '/home/ubuntu/ryu/ryu/app/dsSatellite/config.json')
+    Config.loadjson(config, config_path)
     time_expand_network = create_virtue_topo(config)
-    topo = time_expand_network.topo(16,8)
+    topo = time_expand_network.slice_topo(16,8)
     show_topo(topo)
 
 if __name__ == '__main__':

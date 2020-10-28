@@ -25,33 +25,44 @@ from ryu.lib.packet import ether_types
 from ryu.ofproto import ether
 from ryu.lib import hub
 
+import datetime
+import Config
+import virtue_topo
+
 
 class SimpleSwitch13(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
+
+        self.config_path =  '/home/ubuntu/ryu/ryu/app/dsSatellite/config.json'
+        self.config = Config.Config()
+        Config.loadjson(self.config, self.config_path)
+
+        self.current_topo
+        self.time_expand_topo = virtue_topo.create_virtue_topo(self.config)
+        self.topo_thread = hub.spawn(self._create_topo)
+
+        self.monitor_thread = hub.spawn(self._monitor)
+
+        
         self.mac_to_port = {}
         self.datapaths = {}
-        self.monitor_thread = hub.spawn(self._monitor)
         self.lastCount = {}
 
         self.sleepTime = 1.0
         self.bw = 500
         self.threashold = 0.8
         self.arp_table = {}
-        self.arp_table = {'10.0.0.1': '00:00:00:00:00:01',
-                          '10.0.0.2': '00:00:00:00:00:02',
-                          '10.0.0.3': '00:00:00:00:00:03',
-                          '10.0.0.4': '00:00:00:00:00:04',
-                          '10.0.0.5': '00:00:00:00:00:05',
-                          '10.0.0.6': '00:00:00:00:00:06',
-                          '10.0.0.7': '00:00:00:00:00:07',
-                          '10.0.0.8': '00:00:00:00:00:08',
-                          '10.0.0.9': '00:00:00:00:00:09',
-                          '10.0.0.10': '00:00:00:00:00:10',
-                          '10.0.0.11': '00:00:00:00:00:11',
-                          '10.0.0.12': '00:00:00:00:00:12'}
+        self.arp_table = {self.config['sat']['group1']['host']['ip_addr']: self.config['sat']['group1']['host']['eth0'],
+                          self.config['sat']['group2']['host']['ip_addr']: self.config['sat']['group2']['host']['eth0'],
+                          self.config['sat']['group3']['host']['ip_addr']: self.config['sat']['group3']['host']['eth0'],
+                          self.config['sat']['sr1']['host']['ip_addr']: self.config['sat']['sr1']['host']['eth0'],
+                          self.config['sat']['sr2']['host']['ip_addr']: self.config['sat']['sr2']['host']['eth0'],
+                          self.config['sat']['sr3']['host']['ip_addr']: self.config['sat']['sr3']['host']['eth0'],
+                          self.config['dc']['host']['ip_addr']: self.config['dc']['host']['eth0']}
+
         self.client = {'00:00:00:00:00:01':[1, '10.0.0.1'],
                        '00:00:00:00:00:02':[2, '10.0.0.2'],
                        '00:00:00:00:00:03':[3, '10.0.0.3'],
@@ -154,6 +165,11 @@ class SimpleSwitch13(app_manager.RyuApp):
         while True:
             for dp in self.datapaths.values():
                 self._request_stats(dp)
+            hub.sleep(self.sleepTime)
+        
+    def _create_topo(self):
+        while True:
+            self.current_topo = self.time_expand_topo(datetime.datetime.now().hour, datetime.datetime.now().minute)
             hub.sleep(self.sleepTime)
 
     def _request_stats(self, datapath):
