@@ -81,10 +81,14 @@ def show_topo(GG_):
 
 def main():
     config_path =  '/home/ubuntu/ryu/ryu/app/dsSatellite/config.json'
-    config = Config.Config()
-    Config.loadjson(config, config_path)
+    config = Config.Config(config_path)
     time_expand_network = create_virtue_topo(config)
     topo = time_expand_network.slice_topo(16,8)
+    all_pairs_shortest_paths = nx.shortest_path(topo,weight = 'weight')
+    print(all_pairs_shortest_paths)
+    for x in all_pairs_shortest_paths:
+        print(x)
+    #print(all_pairs_shortest_paths)
     show_topo(topo)
 
 if __name__ == '__main__':

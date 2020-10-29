@@ -25,9 +25,10 @@ from ryu.lib.packet import ether_types
 from ryu.ofproto import ether
 from ryu.lib import hub
 
-import datetime
+import datetime as dt
 import Config
 import virtue_topo
+import networkx as nx
 
 
 class SimpleSwitch13(app_manager.RyuApp):
@@ -39,11 +40,22 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.config_path =  '/home/ubuntu/ryu/ryu/app/dsSatellite/config.json'
         self.config = Config.Config(self.config_path)
 
-        self.current_topo
+        self.current_topo = nx.Graph()
         self.time_expand_topo = virtue_topo.create_virtue_topo(self.config)
         self.topo_thread = hub.spawn(self._create_topo)
+        self.all_pairs_shortest_paths = {}
 
         self.monitor_thread = hub.spawn(self._monitor)
+
+        self.arp_table = {self.config.json['sat']['group1']['host']['ip_addr']: self.config.json['sat']['group1']['host']['eth0'],
+                          self.config.json['sat']['group2']['host']['ip_addr']: self.config.json['sat']['group2']['host']['eth0'],
+                          self.config.json['sat']['group3']['host']['ip_addr']: self.config.json['sat']['group3']['host']['eth0'],
+                          self.config.json['sat']['sr1']['host']['ip_addr']: self.config.json['sat']['sr1']['host']['eth0'],
+                          self.config.json['sat']['sr2']['host']['ip_addr']: self.config.json['sat']['sr2']['host']['eth0'],
+                          self.config.json['sat']['sr3']['host']['ip_addr']: self.config.json['sat']['sr3']['host']['eth0'],
+                          self.config.json['dc']['host']['ip_addr']: self.config.json['dc']['host']['eth0']}
+        
+        self.last_time = dt.datetime(year=2020,month=5,day=8,hour=0,minute=0)
 
         
         self.mac_to_port = {}
@@ -54,26 +66,6 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.bw = 500
         self.threashold = 0.8
 
-        self.arp_table = {self.config.json['sat']['group1']['host']['ip_addr']: self.config.json['sat']['group1']['host']['eth0'],
-                          self.config.json['sat']['group2']['host']['ip_addr']: self.config.json['sat']['group2']['host']['eth0'],
-                          self.config.json['sat']['group3']['host']['ip_addr']: self.config.json['sat']['group3']['host']['eth0'],
-                          self.config.json['sat']['sr1']['host']['ip_addr']: self.config.json['sat']['sr1']['host']['eth0'],
-                          self.config.json['sat']['sr2']['host']['ip_addr']: self.config.json['sat']['sr2']['host']['eth0'],
-                          self.config.json['sat']['sr3']['host']['ip_addr']: self.config.json['sat']['sr3']['host']['eth0'],
-                          self.config.json['dc']['host']['ip_addr']: self.config.json['dc']['host']['eth0']}
-
-        self.client = {'00:00:00:00:00:01':[1, '10.0.0.1'],
-                       '00:00:00:00:00:02':[2, '10.0.0.2'],
-                       '00:00:00:00:00:03':[3, '10.0.0.3'],
-                       '00:00:00:00:00:04':[4, '10.0.0.4'],
-                       '00:00:00:00:00:05':[5, '10.0.0.5'],
-                       '00:00:00:00:00:06':[6, '10.0.0.6']}
-        self.server = {'00:00:00:00:00:07':[3, '10.0.0.7'],
-                       '00:00:00:00:00:08':[4, '10.0.0.8'],
-                       '00:00:00:00:00:09':[5, '10.0.0.9'],
-                       '00:00:00:00:00:10':[6, '10.0.0.10'],
-                       '00:00:00:00:00:11':[7, '10.0.0.11'],
-                       '00:00:00:00:00:12':[8, '10.0.0.12']}
         self.line1 = 0
         self.line2 = 0
         self.timeStamp=0
@@ -168,8 +160,43 @@ class SimpleSwitch13(app_manager.RyuApp):
         
     def _create_topo(self):
         while True:
-            self.current_topo = self.time_expand_topo(datetime.datetime.now().hour, datetime.datetime.now().minute)
+            current_hour = dt.datetime.now().hour
+            current_minute = dt.datetime.now().minute
+            if current_hour != self.last_time.hour and current_minute != self.last_time.minute
+                self.current_topo = self.time_expand_topo.slice_topo(datetime.datetime.now().hour, datetime.datetime.now().minute)
+                self.update_flow_table()
+            virtue_topo.show_topo(self.current_topo)
             hub.sleep(self.sleepTime)
+
+    def update_flow_table(self):
+        self.all_pairs_shortest_paths = self.current_topo.shortest_path(weight = weight)
+        for source in nx.shortest_path(self.current_topo, weight = 'weight'):
+            targets_paths = self.all_pairs_shortest_paths[source]
+            for target in targets_paths:
+                shortest_path = targets_paths[target]
+                if len(shortest_path) > 1:
+                    self.distribute_flow_table(source, target, shortest_path)
+    
+    def distribute_flow_table(self, source, target, shortest_path):
+        dpid = self.config.json[source]["datapath"]["dpid"]
+        dst_ip = self.config.json[target]["host"]["ip_addr"]
+        next_hop = shortest_path[1]
+        out_port_num = self.config.json["link_port_num"][source+"_to_"+next_hop]
+        
+        self.logger.info("Here are flows")
+        self.logger.info(mod)
+    
+    def add_flow(self, datapath, priority, match, actions):
+            ofproto = datapath.ofproto
+            parser = datapath.ofproto_parser
+
+            inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
+                                                ofp_parser.OFPActionOutput(out_port))]
+            mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
+                                    match=match, instructions=inst)
+            datapath.send_msg(mod)
+
+        
 
     def _request_stats(self, datapath):
         self.logger.debug('send stats request: %016x', datapath.id)
@@ -249,8 +276,6 @@ class SimpleSwitch13(app_manager.RyuApp):
                     self.add_flow(self.dp1, 3, match, actions=[ofp_parser.OFPActionOutput(8)])
                     match = ofp_parser.OFPMatch(eth_type=ether.ETH_TYPE_IP, ipv4_dst=src[1])
                     self.add_flow(self.dp2, 3, match, actions=[ofp_parser.OFPActionOutput(2)])
-
-
 
     def add_reactive_flow(self, dp, match, table, priority,out_port):
         ofp = dp.ofproto
