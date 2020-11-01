@@ -12,23 +12,20 @@
 # implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import datetime as dt
 from operator import attrgetter
 
+import networkx as nx
 from ryu.base import app_manager
 from ryu.controller import ofp_event
-from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER, DEAD_DISPATCHER
-from ryu.controller.handler import set_ev_cls
-from ryu.ofproto import ofproto_v1_3
-from ryu.lib.packet import packet
-from ryu.lib.packet import ethernet, arp, ipv4, icmp, tcp
-from ryu.lib.packet import ether_types
-from ryu.ofproto import ether
+from ryu.controller.handler import (CONFIG_DISPATCHER, DEAD_DISPATCHER,
+                                    MAIN_DISPATCHER, set_ev_cls)
 from ryu.lib import hub
+from ryu.lib.packet import arp, ether_types, ethernet, icmp, ipv4, packet, tcp
+from ryu.ofproto import ether, ofproto_v1_3
 
-import datetime as dt
-import Config
-import virtue_topo
-import networkx as nx
+from Config import Config
+from virtue_topo import virtue_topo
 
 
 class SimpleSwitch13(app_manager.RyuApp):
@@ -57,17 +54,11 @@ class SimpleSwitch13(app_manager.RyuApp):
         
         self.last_time = dt.datetime(year=2020,month=5,day=8,hour=0,minute=0)
 
-        
-        self.mac_to_port = {}
         self.datapaths = {}
         self.lastCount = {}
 
         self.sleepTime = 1.0
-        self.bw = 500
-        self.threashold = 0.8
 
-        self.line1 = 0
-        self.line2 = 0
         self.timeStamp=0
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -77,39 +68,10 @@ class SimpleSwitch13(app_manager.RyuApp):
         parser = dp.ofproto_parser
 
         # install table-miss flow entry
-        #
-        # We specify NO BUFFER to max_len of the output action due to
-        # OVS bug. At this moment, if we specify a lesser number, e.g.,
-        # 128, OVS will send Packet-In with invalid buffer_id and
-        # truncated packet data. In that case, we cannot output packets
-        # correctly.  The bug has been fixed in OVS v2.1.0.
-        if(dp.id == 1):
-            self.dp1 = dp
-            self.logger.info("dp1 registered")
-        if(dp.id == 2):
-            self.dp2 = dp
-            self.logger.info("dp2 registered")
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
                                           ofproto.OFPCML_NO_BUFFER)]
         self.add_flow(dp, 0, match, actions)
-
-    def add_flow(self, datapath, priority, match, actions, buffer_id=None):
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-
-        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
-                                             actions)]
-        if buffer_id:
-            mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
-                                    priority=priority, match=match,
-                                    instructions=inst)
-        else:
-            mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
-                                    match=match, instructions=inst)
-        #self.logger.info('Here are flows')
-        #self.logger.info(mod)
-        datapath.send_msg(mod)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -136,7 +98,7 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         if (eth.ethertype == ether_types.ETH_TYPE_IP):
             self.logger.info("This is packet in message")
-            #self.logger.info(pkt)
+            self.logger.info(pkt)
             self.handle_ip(dp, ev.msg)
 
     @set_ev_cls(ofp_event.EventOFPStateChange,
@@ -182,60 +144,44 @@ class SimpleSwitch13(app_manager.RyuApp):
         dst_ip = self.config.json[target]["host"]["ip_addr"]
         next_hop = shortest_path[1]
         out_port_num = self.config.json["link_port_num"][source+"_to_"+next_hop]
-        
-        self.logger.info("Here are flows")
+
+        match = parser.OFPMatch(ipv4_dst=dst_ip)
+        actions = ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                                  [ofp_parser.OFPActionOutput(out_port_num)])
+        inst = [actions]
+        self.add_flow(self.datapaths[dpid], 1, 1, match,  inst)
+
+    def add_flow(self, datapath, table_id,priority, match, inst, buffer_id=None):
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+        cookie = cookiemask = 0
+        idle_timeout = hard_timeout = 0
+
+        if buffer_id:
+            mod = parser.OFPFlowMod(datapath=datapath, cookie, cookie_mask, table_id, ofproto.OFPFC_ADD ,idle_timeout,
+                                    hard_timeout, buffer_id=buffer_id, priority=priority, match=match, instructions=inst)
+        else:
+            mod = parser.OFPFlowMod(datapath=datapath, cookie, cookie_mask, table_id, ofproto.OFPFC_ADD ,idle_timeout,
+                                    hard_timeout, priority=priority, match=match, instructions=inst)
+
+        self.logger.info('Here are flows')
         self.logger.info(mod)
-    
-    def add_flow(self, datapath, priority, match, actions):
-            ofproto = datapath.ofproto
-            parser = datapath.ofproto_parser
-
-            inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
-                                                ofp_parser.OFPActionOutput(out_port))]
-            mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
-                                    match=match, instructions=inst)
-            datapath.send_msg(mod)
-
-        
+        datapath.send_msg(mod)        
 
     def _request_stats(self, datapath):
         self.logger.debug('send stats request: %016x', datapath.id)
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
-        #req = parser.OFPFlowStatsRequest(datapath)
-        #datapath.send_msg(req)
-
         req = parser.OFPPortStatsRequest(datapath, 0, ofproto.OFPP_ANY)
         datapath.send_msg(req)
-
-    @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
-    def _flow_stats_reply_handler(self, ev):
-        body = ev.msg.body
-
-        self.logger.info('datapath         '
-                         'ipv4_src ipv4_dst '
-                         'out-port packets  bytes')
-        self.logger.info('---------------- '
-                         '-------- -------- '
-                         '-------- -------- --------')
-
-        for stat in sorted([flow for flow in body ],
-                           key=lambda flow: (flow.match['ipv4_src'],
-                                             flow.match['ipv4_dst'])):
-            self.logger.info('%016x %s %s %8x %8d %8d',
-                             ev.msg.datapath.id,
-                             stat.match['ipv4_src'], stat.match['ipv4_dst'],
-                             stat.instructions[0].actions[0].port,
-                             stat.packet_count, stat.byte_count)
 
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
     def _port_stats_reply_handler(self, ev):
         body = ev.msg.body
         dp = ev.msg.datapath
         dpid = dp.id
-        ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
+        ofp_parser = dp.ofproto.ofproto_parser
         self.lastCount.setdefault(dpid, {})
 
         self.logger.info('datapath         port     '
@@ -244,7 +190,6 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.logger.info('---------------- -------- '
                          '-------- -------- '
                          '-------- -------- -------')
-        f = open('/home/ubuntu/ryu/ryu/app/custom/data.txt', 'a')
         for stat in sorted(body, key=attrgetter('port_no')):
             if stat.port_no in self.lastCount[dpid]:
                 speed = ((stat.rx_bytes + stat.tx_bytes) - self.lastCount[dpid][stat.port_no]) * 8 / (
@@ -252,51 +197,14 @@ class SimpleSwitch13(app_manager.RyuApp):
             else:
                 speed = (stat.rx_bytes + stat.tx_bytes) * 8 / (self.sleepTime * 1024 * 1024)
 
-            if (dpid == 1 and (stat.port_no == 7 or stat.port_no == 8)):
-                if (stat.port_no == 7):
-                    self.line1 = speed
-                else:
-                    self.line2 = speed
-            if(dpid==1):
-                self.timeStamp += 1
-                self.logger.info('%016x %8x %8d %8d %8d %8d %.2f',
-                                 dpid, stat.port_no,
-                                 stat.rx_bytes, stat.rx_errors,
-                                 stat.tx_bytes, stat.tx_errors, speed)
-                item = "%8d %8x %.2f\n" % (self.timeStamp, stat.port_no, speed)
-                f.write(item)
+            self.timeStamp += 1
+            self.logger.info('%016x %8x %8d %8d %8d %8d %.2f',
+                                dpid, stat.port_no,
+                                stat.rx_bytes, stat.rx_errors,
+                                stat.tx_bytes, stat.tx_errors, speed)
             self.lastCount[dpid][stat.port_no] = stat.rx_bytes + stat.tx_bytes
-        f.close()
-
-        # transfer
-        if (self.line1 > self.threashold * self.bw):
-            for src in self.client.values():
-                if (src[1] != "10.0.0.1"):
-                    match = ofp_parser.OFPMatch(eth_type=ether.ETH_TYPE_IP, ipv4_src=src[1],)
-                    self.add_flow(self.dp1, 3, match, actions=[ofp_parser.OFPActionOutput(8)])
-                    match = ofp_parser.OFPMatch(eth_type=ether.ETH_TYPE_IP, ipv4_dst=src[1])
-                    self.add_flow(self.dp2, 3, match, actions=[ofp_parser.OFPActionOutput(2)])
-
-    def add_reactive_flow(self, dp, match, table, priority,out_port):
-        ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
-
-        buffer_id = ofp.OFP_NO_BUFFER
-
-        action = ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-                                                  [ofp_parser.OFPActionOutput(out_port)])
-        inst = [action]
-
-        mod = ofp_parser.OFPFlowMod(
-            datapath=dp, table_id=table, priority=priority,
-            match=match, instructions=inst
-        )
-        self.logger.info("Here are flows")
-        self.logger.info(mod)
-        dp.send_msg(mod)
 
     # PacketOut used to send packet from controller to switch
-
     def send_packet(self, dp, port, pkt):
         ofproto = dp.ofproto
         parser = dp.ofproto_parser
@@ -344,94 +252,3 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.send_packet(dp, port, pkt)
 
     # PacketOut used to send packet from controller to switch
-
-    def handle_ip(self, dp, msg):
-        self.logger.info("handle_ip was called")
-        pkt = packet.Packet(msg.data)
-        #self.logger.info(pkt)
-
-        dp = msg.datapath
-        ofproto = dp.ofproto
-        ofp_parser = dp.ofproto_parser
-        in_port = msg.match['in_port']
-
-        #ethernet packet
-        eth_pkt = pkt.get_protocols(ethernet.ethernet)[0]
-        eth_src = eth_pkt.src
-        eth_dst = eth_pkt.dst
-
-        #ip packet
-        ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
-        ip_src = ipv4_pkt.src
-        ip_dst = ipv4_pkt.dst
-
-        ip_proto = ipv4_pkt.proto  #upper layer protocol will be TCP in our case
-        actions = []
-
-        """
-        if ip_src == "10.0.0.1" and ip_dst == "10.0.0.3":
-            self.logger.info("h1 tooooooooooooo h3")
-            match = ofp_parser.OFPMatch(eth_type=ether.ETH_TYPE_IP, ipv4_src=ip_src, ipv4_dst=ip_dst,
-                                        ip_proto=ip_proto, in_port=in_port)
-            actions.append(ofp_parser.OFPActionOutput(3))
-            self.add_flow(self.dp1, 1, match, actions = actions)
-            self.add_flow(self.dp2, 1, match, actions = actions)
-
-        if ip_src == "10.0.0.3" and ip_dst == "10.0.0.1":
-            match = ofp_parser.OFPMatch(eth_type=ether.ETH_TYPE_IP, ipv4_src=ip_src, ipv4_dst=ip_dst,
-                                        ip_proto=ip_proto, in_port=in_port)
-            actions.append(ofp_parser.OFPActionOutput(1))
-            self.add_flow(self.dp1, 1, match, actions = actions)
-            self.add_flow(self.dp2, 1, match, actions = actions)
-
-
-        if ip_src == "10.0.0.2" and ip_dst == "10.0.0.4":
-            match = ofp_parser.OFPMatch(eth_type=ether.ETH_TYPE_IP, ipv4_src=ip_src, ipv4_dst=ip_dst,
-                                        ip_proto=ip_proto, in_port=in_port)
-            actions.append(ofp_parser.OFPActionOutput(4))
-            self.add_flow(self.dp1, 1, match, actions = actions)
-            self.add_flow(self.dp2, 1, match, actions = actions)
-
-        if ip_src == "10.0.0.4" and ip_dst == "10.0.0.2":
-            match = ofp_parser.OFPMatch(eth_type=ether.ETH_TYPE_IP, ipv4_src=ip_src, ipv4_dst=ip_dst,
-                                        ip_proto=ip_proto, in_port=in_port)
-            actions.append(ofp_parser.OFPActionOutput(2))
-            self.add_flow(self.dp1, 1, match, actions = actions)
-            self.add_flow(self.dp2, 1, match, actions = actions)
-        """
-        if(dp.id==1):
-            if(ip_dst in [p[1] for p in self.client.values()]):
-                match = ofp_parser.OFPMatch(eth_type=ether.ETH_TYPE_IP, ipv4_dst=ip_dst,
-                                            ip_proto=ip_proto, in_port=in_port)
-                actions = [ofp_parser.OFPActionOutput(self.client[eth_dst][0])]
-                self.add_flow(self.dp1, 1, match, actions=actions )
-            else:
-                out = 8 if(self.line1>self.line2) else 7
-                match = ofp_parser.OFPMatch(eth_type=ether.ETH_TYPE_IP, ipv4_dst=ip_dst,
-                                            ip_proto=ip_proto, in_port=in_port)
-                actions = [ofp_parser.OFPActionOutput(out)]
-                self.add_flow(self.dp1, 1, match, actions=actions)
-        else:
-            if (ip_dst in [p[1] for p in self.server.values()]):
-                match = ofp_parser.OFPMatch(eth_type=ether.ETH_TYPE_IP, ipv4_dst=ip_dst,
-                                            ip_proto=ip_proto, in_port=in_port)
-                actions = [ofp_parser.OFPActionOutput(self.server[eth_dst][0])]
-                self.add_flow(self.dp2, 1, match, actions=actions)
-            else:
-                out = 2 if (self.line1 > self.line2) else 1
-                match = ofp_parser.OFPMatch(eth_type=ether.ETH_TYPE_IP, ipv4_dst=ip_dst,
-                                            ip_proto=ip_proto, in_port=in_port)
-                actions = [ofp_parser.OFPActionOutput(out)]
-                self.add_flow(self.dp2, 1, match, actions=actions)
-
-
-
-        data = None
-        if msg.buffer_id == ofproto.OFP_NO_BUFFER:
-            data = msg.data
-
-        out = ofp_parser.OFPPacketOut(datapath=dp, buffer_id=msg.buffer_id,
-                                  in_port=in_port, actions=actions, data=data)
-        dp.send_msg(out)
-
-

@@ -1,12 +1,17 @@
 # -*- coding:UTF-8 -*-
 import os
+import sys
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) #当前程序上上一级目录，这里为mycompany
+sys.path.append(BASE_DIR)
+
 from datetime import datetime
 
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 
-import Config
+from Config import Config
 
 
 class virtue_topo(nx.MultiGraph):
@@ -80,7 +85,7 @@ def show_topo(GG_):
     plt.show()
 
 def main():
-    config_path =  '/home/ubuntu/ryu/ryu/app/dsSatellite/config.json'
+    config_path =  '/home/ubuntu/ryu/ryu/app/dsSatellite/Config/config.json'
     config = Config.Config(config_path)
     time_expand_network = create_virtue_topo(config)
     topo = time_expand_network.slice_topo(16,8)
