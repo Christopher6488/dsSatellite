@@ -27,16 +27,17 @@ class virtue_topo(nx.MultiGraph):
             for file in files:
                 node_name = file.replace(".csv", "")
                 for node in node_name.split('-'):
-                    if('h' in node):
-                        self.add_node(node, type='host')
-                    else:
-                        self.add_node(node, type='sat')
+                    if 'group' in node :
+                        self.add_node(node, type='group')
+                    if 'sr' in node :
+                        self.add_node(node, type='sr')
+                    if 'dc' in node:
+                        self.add_node(node, type='dc')
                     if node not in self.netnode:
                         self.netnode.append(node)
                 self.add_link(node_name.split('-')[0], node_name.split('-')[1], self.config.stk_path+'/'+file)
         #print(list(self.nodes(data=True)))
 
-    
     def add_link(self, node0, node1, file_):
         f = np.loadtxt(file_, delimiter=',', skiprows=1)
         for data in f:
@@ -47,10 +48,12 @@ class virtue_topo(nx.MultiGraph):
         time = datetime(year=2020,month=5,day=8,hour=int(hour_),minute=int(minute_))
         GG = nx.Graph(time=time)
         for node in self.netnode:
-            if('h' in node):
-                 GG.add_node(node, type='host')
-            else:
-                GG.add_node(node, type='sat')
+            if 'group' in node:
+                 GG.add_node(node, type='group')
+            if 'dc' in node:
+                GG.add_node(node, type='dc')
+            if 'sr' in node:
+                GG.add_node(node, type='sr')
         self.slice_topo_link(GG, time)
 
         return GG
@@ -80,7 +83,7 @@ def show_topo(GG_):
                 alpha=0.8,
                 arrows=True,
                 with_labels=True,
-                node_color=['r' if d['type']=='sat' else 'b' for (u,d) in GG_.nodes(data=True)],
+                node_color=['r' if d['type']=='sr' else 'b' for (u,d) in GG_.nodes(data=True)],
                 )
     plt.show()
 
@@ -88,7 +91,7 @@ def main():
     config_path =  '/home/ubuntu/ryu/ryu/app/dsSatellite/Config/config.json'
     config = Config.Config(config_path)
     time_expand_network = create_virtue_topo(config)
-    topo = time_expand_network.slice_topo(16,8)
+    topo = time_expand_network.slice_topo(19,8)
     all_pairs_shortest_paths = nx.shortest_path(topo,weight = 'weight')
     print(all_pairs_shortest_paths)
     for x in all_pairs_shortest_paths:

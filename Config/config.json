@@ -1,6 +1,5 @@
 {
-
-    "stk_path": "/home/ubuntu/ryu/ryu/app/custom/sw-host",
+    "stk_path": "/home/ubuntu/ryu/ryu/app/custom/sattest",
     "sat":{
         "group1":{
             "host":{
@@ -42,7 +41,7 @@
             },
     
             "datapath": {
-                "dpmac= '00:00:00:00:00:06', ip='10.0.0.06'id": 4
+                "dpid": 4
             } 
         },
     
@@ -118,7 +117,12 @@
         "sr3_to_sr1": 5,
         "sr3_to_sr2": 4,
         "sr3_to_host": 6,
-        "sr3_to_dc": 7
+        "sr3_to_dc": 7,
+
+        "dc_to_sr1": 1,
+        "dc_to_sr2": 2,
+        "dc_to_sr3": 3,
+        "dc_to_host": 4
     }
 
 }

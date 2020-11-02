@@ -52,26 +52,53 @@ class SimpleSwitch13(app_manager.RyuApp):
                           self.config.json['sat']['sr3']['host']['ip_addr']: self.config.json['sat']['sr3']['host']['eth0'],
                           self.config.json['dc']['host']['ip_addr']: self.config.json['dc']['host']['eth0']}
         
-        self.last_time = dt.datetime(year=2020,month=5,day=8,hour=0,minute=0)
+        self.dpid_table = {self.config.json['sat']['group1']['datapath']['dpid']: 'group1', 
+                                            self.config.json['sat']['group2']['datapath']['dpid']: 'group2', 
+                                            self.config.json['sat']['group3']['datapath']['dpid']: 'group3',
+                                            self.config.json['sat']['sr1']['datapath']['dpid']: 'sr1',
+                                            self.config.json['sat']['sr2']['datapath']['dpid']: 'sr2',
+                                            self.config.json['sat']['sr3']['datapath']['dpid']: 'sr3',
+                                            self.config.json['dc']['datapath']['dpid']: 'dc'}
+        
+        self.last_time = dt.datetime(year=2020,month=5,day=8,hour=dt.datetime.now().hour,minute=dt.datetime.now().minute)
 
         self.datapaths = {}
         self.lastCount = {}
 
         self.sleepTime = 1.0
 
-        self.timeStamp=0
+        self.timeStamp = 0
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
         dp = ev.msg.datapath
+        # install to host flow entry
+        self.install_to_host_flow_entry(dp)
+        # install table-miss flow entry
+        self.install_table_miss_flow_entry(dp)
+
+    def install_to_host_flow_entry(self, dp):
         ofproto = dp.ofproto
         parser = dp.ofproto_parser
-
-        # install table-miss flow entry
+        host = self.dpid_table[dp.id]
+        if 'dc' in host:
+            match = parser.OFPMatch(ipv4_dst=self.config.json['dc']['host']['ip_addr'])
+        else:
+            match = parser.OFPMatch(ipv4_dst=self.config.json['sat'][host]['host']['ip_addr'])
+        out_port_num = self.config.json['link_port_num'][host+'_to_host']
+        actions = parser.OFPActionOutput(ofproto.OFPIT_APPLY_ACTIONS,
+                                                  [parser.OFPActionOutput(out_port_num)])
+        inst = [actions]
+        self.add_flow(dp, table_id=0, priority=0, match=match, inst=inst)
+    
+    def install_table_miss_flow_entry(self, dp):
+        ofproto = dp.ofproto
+        parser = dp.ofproto_parser
         match = parser.OFPMatch()
-        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
-                                          ofproto.OFPCML_NO_BUFFER)]
-        self.add_flow(dp, 0, match, actions)
+        actions = parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
+                                          ofproto.OFPCML_NO_BUFFER)
+        inst = [actions]
+        self.add_flow(dp, table_id=0,  priority=0, match=match, inst=inst)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -121,13 +148,13 @@ class SimpleSwitch13(app_manager.RyuApp):
             hub.sleep(self.sleepTime)
         
     def _create_topo(self):
-        while True:
-            current_hour = dt.datetime.now().hour
-            current_minute = dt.datetime.now().minute
-            if current_hour != self.last_time.hour and current_minute != self.last_time.minute
+        while len(self.datapaths) == 7:
+            current_hour = 19#dt.datetime.now().hour
+            current_minute = 8#dt.datetime.now().minute
+            if current_hour != self.last_time.hour and current_minute != self.last_time.minute:
                 self.current_topo = self.time_expand_topo.slice_topo(datetime.datetime.now().hour, datetime.datetime.now().minute)
                 self.update_flow_table()
-            virtue_topo.show_topo(self.current_topo)
+            #virtue_topo.show_topo(self.current_topo)
             hub.sleep(self.sleepTime)
 
     def update_flow_table(self):
@@ -141,15 +168,19 @@ class SimpleSwitch13(app_manager.RyuApp):
     
     def distribute_flow_table(self, source, target, shortest_path):
         dpid = self.config.json[source]["datapath"]["dpid"]
+        dp = self.datapaths[dpid]
+        ofp = dp.ofproto
+        parser = dp.ofproto_parser
+        
         dst_ip = self.config.json[target]["host"]["ip_addr"]
         next_hop = shortest_path[1]
         out_port_num = self.config.json["link_port_num"][source+"_to_"+next_hop]
 
         match = parser.OFPMatch(ipv4_dst=dst_ip)
-        actions = ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-                                                  [ofp_parser.OFPActionOutput(out_port_num)])
+        actions = parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                                  [parser.OFPActionOutput(out_port_num)])
         inst = [actions]
-        self.add_flow(self.datapaths[dpid], 1, 1, match,  inst)
+        self.add_flow(dp, table_id=1, priority=1, match=match,  inst=inst)
 
     def add_flow(self, datapath, table_id,priority, match, inst, buffer_id=None):
         ofproto = datapath.ofproto
