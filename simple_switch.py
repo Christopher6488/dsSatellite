@@ -41,8 +41,12 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.time_expand_topo = virtue_topo.create_virtue_topo(self.config)
         self.topo_thread = hub.spawn(self._create_topo)
         self.all_pairs_shortest_paths = {}
+        self.flag = 1
 
         #self.monitor_thread = hub.spawn(self._monitor)
+        self.datapaths = {}
+        self.lastCount = {}
+        self.timeStamp=0
 
         self.arp_table = {self.config.json['sat']['group1']['host']['ip_addr']: self.config.json['sat']['group1']['host']['eth0'],
                           self.config.json['sat']['group2']['host']['ip_addr']: self.config.json['sat']['group2']['host']['eth0'],
@@ -61,13 +65,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                                             self.config.json['dc']['dc1']['datapath']['dpid']: 'dc1'}
         
         self.last_time = dt.datetime(year=2020,month=5,day=8,hour=dt.datetime.now().hour,minute=dt.datetime.now().minute)
-
-        self.datapaths = {}
-        self.lastCount = {}
-
         self.sleepTime = 1.0
-
-        self.timeStamp = 0
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -132,8 +130,6 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         if (eth.ethertype == ether_types.ETH_TYPE_IP):
             self.logger.info("This is packet in message")
-            self.logger.info("DPID")
-            self.logger.info(dp.id)
             self.logger.info(pkt)
             self.handle_ip(dp, ev.msg)
 
@@ -158,43 +154,45 @@ class SimpleSwitch13(app_manager.RyuApp):
         
     def _create_topo(self):
         hub.sleep(10)
-        #self.logger.info("create_topo called 1!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         while True:
-            self.logger.info("create_topo called 2!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
             while len(self.datapaths) == 7:
-                self.logger.info("create_topo called 3!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                 current_hour = 19#dt.datetime.now().hour
                 current_minute = 8#dt.datetime.now().minute
-                if current_hour != self.last_time.hour and current_minute != self.last_time.minute:
-                    self.logger.info("ssssssssssssssssssssssssssssssssssssssssssss")
-                    self.current_topo = self.time_expand_topo.slice_topo(current_hour, current_minute)
-                    self.update_flow_table()
-                    self.last_time = dt.datetime(year=2020,month=5,day=8,hour=current_hour,minute=current_minute)
+               # if current_hour != self.last_time.hour and current_minute != self.last_time.minute:
+                self.current_topo = self.time_expand_topo.slice_topo(current_hour, current_minute)
+                self.update_flow_table()
+                hub.sleep(20)
+                self.clear_old_flow()
                 hub.sleep(10)
+                self.last_time = dt.datetime(year=2020,month=5,day=8,hour=current_hour,minute=current_minute)
                 #virtue_topo.show_topo(self.current_topo)
 
     def update_flow_table(self):
-        self.logger.info("update_flow_table called!!!!!!!!!!!!!!!!!!!!!!!")
         self.all_pairs_shortest_paths = nx.shortest_path(self.current_topo, weight = 'weight')
         for source in nx.shortest_path(self.current_topo, weight = 'weight'):
-            self.logger.info( "source")
-            self.logger.info( source)
             targets_paths = self.all_pairs_shortest_paths[source]
-            self.logger.info( "targets_paths")
-            self.logger.info( targets_paths)
             for target in targets_paths:
-                self.logger.info( "target")
-                self.logger.info( target)
                 shortest_path = targets_paths[target]
-                self.logger.info( "shortest_path")
-                self.logger.info( shortest_path)
                 if len(shortest_path) > 1:
-                    self.distribute_flow_table(source, target, shortest_path)
+                    self.distribute_flow_table(source, self.flag, target, shortest_path)
+        self.flag = ( 3 - pow(-1, self.flag) ) / 2
     
-    def distribute_flow_table(self, source, target, shortest_path):
+    def clear_old_flow(self):
+        for datapath in self.datapaths.values():
+            ofp = datapath.ofproto
+            ofp_parser = datapath.ofproto_parser
+            match = ofp_parser.OFPMatch()
+            req = ofp_parser.OFPFlowMod(datapath, 
+                                       table_id=0, command=ofp.OFPFC_DELETE,
+                                       buffer_id= None, 
+                                       match=match, instructions=[])
+            self.logger.info(datapath.id)
+            datapath.send_msg(req)
+
+    
+    def distribute_flow_table(self, source, flag, target, shortest_path):
         src_node_class = self.check_class(source)
         dpid = self.config.json[src_node_class][source]["datapath"]["dpid"]
-        
         dst_node_class = self.check_class(target)
         dst_ip = self.config.json[dst_node_class][target]["host"]["ip_addr"]
 
@@ -204,17 +202,12 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         next_hop = shortest_path[1]
         out_port_num = self.config.json["link_port_num"][source+"_to_"+next_hop]
-        if dpid==1:
-            self.logger.info("11111111111111111111111111111111111111111111")
-            self.logger.info( source)
-            self.logger.info(next_hop)
-            self.logger.info(out_port_num)
 
-        match = parser.OFPMatch(eth_type=ether.ETH_TYPE_IP, ipv4_dst=out_port_num)
+        match = parser.OFPMatch(eth_type=ether.ETH_TYPE_IP, ipv4_dst=dst_ip)
         actions = parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                                   [parser.OFPActionOutput(out_port_num)])
         inst = [actions]
-        self.add_flow(dp, table_id=0, priority=3, match=match,  inst=inst)
+        self.add_flow(dp, table_id=0, priority=self.flag, match=match,  inst=inst)
     
     def check_class(self, target):
         if 'sr' in target:
