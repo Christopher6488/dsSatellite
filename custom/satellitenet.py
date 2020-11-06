@@ -36,8 +36,8 @@ class SingleSwitchTopo(Topo):
         sr2_host = self.addHost('h5', cpu=.5/7, mac= json['sat']['sr2']['host']['eth0'], ip=json['sat']['sr2']['host']['ip_addr'])
         sr3_host = self.addHost('h6', cpu=.5/7, mac= json['sat']['sr3']['host']['eth0'], ip=json['sat']['sr3']['host']['ip_addr'])
 
-        dc_switch = self.addSwitch('s7')
-        dc_host = self.addHost('h7', cpu=.5/7, mac= json['dc']['host']['eth0'], ip=json['dc']['host']['ip_addr'])
+        dc1_switch = self.addSwitch('s7')
+        dc1_host = self.addHost('h7', cpu=.5/7, mac= json['dc']['dc1']['host']['eth0'], ip=json['dc']['dc1']['host']['ip_addr'])
 
         self.addLink(group1_host, group1_switch,port1=1, port2=json['link_port_num']['group1_to_host'])
         self.addLink(group1_switch, sr1_switch, port1=json['link_port_num']['group1_to_sr1'], port2=json['link_port_num']['sr1_to_group1'])
@@ -54,14 +54,19 @@ class SingleSwitchTopo(Topo):
         self.addLink(group3_switch, sr2_switch, port1=json['link_port_num']['group3_to_sr2'], port2=json['link_port_num']['sr2_to_group3'])
         self.addLink(group3_switch, sr3_switch, port1=json['link_port_num']['group3_to_sr3'], port2=json['link_port_num']['sr3_to_group3'])
 
-        self.addLink(dc_switch, sr1_switch, port1=json["link_port_num"]["dc_to_sr1"], port2=json['link_port_num']['sr1_to_dc'])
-        self.addLink(dc_switch, sr2_switch, port1=json["link_port_num"]["dc_to_sr2"], port2=json['link_port_num']['sr2_to_dc'])
-        self.addLink(dc_switch, sr3_switch, port1=json["link_port_num"]["dc_to_sr3"], port2=json['link_port_num']['sr3_to_dc'])
+        self.addLink(sr1_host, sr1_switch, port1=1, port2=json["link_port_num"]["sr1_to_host"])
+        self.addLink(sr2_host, sr2_switch, port1=1, port2=json["link_port_num"]["sr2_to_host"])
+        self.addLink(sr3_host, sr3_switch, port1=1, port2=json["link_port_num"]["sr3_to_host"])
+        self.addLink(dc1_host, dc1_switch, port1=1, port2=json["link_port_num"]["dc1_to_host"])
+
+        self.addLink(dc1_switch, sr1_switch, port1=json["link_port_num"]["dc1_to_sr1"], port2=json['link_port_num']['sr1_to_dc1'])
+        self.addLink(dc1_switch, sr2_switch, port1=json["link_port_num"]["dc1_to_sr2"], port2=json['link_port_num']['sr2_to_dc1'])
+        self.addLink(dc1_switch, sr3_switch, port1=json["link_port_num"]["dc1_to_sr3"], port2=json['link_port_num']['sr3_to_dc1'])
  
 def perfTest(config):
     "Create network and run simple performance test"
     topo = SingleSwitchTopo(config)
-    net = Mininet(topo=topo,host=CPULimitedHost, link=TCLink, controller=RemoteController)
+    net = Mininet(topo=topo,host=CPULimitedHost, link=TCLink, controller=RemoteController(name='controller',ip='127.0.0.1',port=6633))
     net.start()
     # print "Dumping host connections"
     # dumpNodeConnections(net.hosts)

@@ -34,7 +34,7 @@ class SimpleSwitch13(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
 
-        self.config_path =  '/home/ubuntu/ryu/ryu/app/dsSatellite/config.json'
+        self.config_path =  '/home/ubuntu/ryu/ryu/app/dsSatellite/Config/config.json'
         self.config = Config.Config(self.config_path)
 
         self.current_topo = nx.Graph()
@@ -42,7 +42,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.topo_thread = hub.spawn(self._create_topo)
         self.all_pairs_shortest_paths = {}
 
-        self.monitor_thread = hub.spawn(self._monitor)
+        #self.monitor_thread = hub.spawn(self._monitor)
 
         self.arp_table = {self.config.json['sat']['group1']['host']['ip_addr']: self.config.json['sat']['group1']['host']['eth0'],
                           self.config.json['sat']['group2']['host']['ip_addr']: self.config.json['sat']['group2']['host']['eth0'],
@@ -50,7 +50,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                           self.config.json['sat']['sr1']['host']['ip_addr']: self.config.json['sat']['sr1']['host']['eth0'],
                           self.config.json['sat']['sr2']['host']['ip_addr']: self.config.json['sat']['sr2']['host']['eth0'],
                           self.config.json['sat']['sr3']['host']['ip_addr']: self.config.json['sat']['sr3']['host']['eth0'],
-                          self.config.json['dc']['host']['ip_addr']: self.config.json['dc']['host']['eth0']}
+                          self.config.json['dc']['dc1']['host']['ip_addr']: self.config.json['dc']['dc1']['host']['eth0']}
         
         self.dpid_table = {self.config.json['sat']['group1']['datapath']['dpid']: 'group1', 
                                             self.config.json['sat']['group2']['datapath']['dpid']: 'group2', 
@@ -58,7 +58,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                                             self.config.json['sat']['sr1']['datapath']['dpid']: 'sr1',
                                             self.config.json['sat']['sr2']['datapath']['dpid']: 'sr2',
                                             self.config.json['sat']['sr3']['datapath']['dpid']: 'sr3',
-                                            self.config.json['dc']['datapath']['dpid']: 'dc'}
+                                            self.config.json['dc']['dc1']['datapath']['dpid']: 'dc1'}
         
         self.last_time = dt.datetime(year=2020,month=5,day=8,hour=dt.datetime.now().hour,minute=dt.datetime.now().minute)
 
@@ -71,6 +71,7 @@ class SimpleSwitch13(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
+        self.logger.info("switch_features_handler called!")
         dp = ev.msg.datapath
         # install to host flow entry
         self.install_to_host_flow_entry(dp)
@@ -78,25 +79,28 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.install_table_miss_flow_entry(dp)
 
     def install_to_host_flow_entry(self, dp):
+        self.logger.info("install_to_host_flow_entry called!")
         ofproto = dp.ofproto
         parser = dp.ofproto_parser
+        print(self.dpid_table)
         host = self.dpid_table[dp.id]
-        if 'dc' in host:
-            match = parser.OFPMatch(ipv4_dst=self.config.json['dc']['host']['ip_addr'])
-        else:
-            match = parser.OFPMatch(ipv4_dst=self.config.json['sat'][host]['host']['ip_addr'])
+        node_class = self.check_class(host)
+        
+        match = parser.OFPMatch(eth_type=ether.ETH_TYPE_IP, ipv4_dst=self.config.json[node_class][host]['host']['ip_addr'])
         out_port_num = self.config.json['link_port_num'][host+'_to_host']
-        actions = parser.OFPActionOutput(ofproto.OFPIT_APPLY_ACTIONS,
-                                                  [parser.OFPActionOutput(out_port_num)])
+        actions = parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
+                                                                                        [parser.OFPActionOutput(port=out_port_num)])
         inst = [actions]
         self.add_flow(dp, table_id=0, priority=0, match=match, inst=inst)
     
     def install_table_miss_flow_entry(self, dp):
+        self.logger.info("install_table_miss_flow_entry called!")
         ofproto = dp.ofproto
         parser = dp.ofproto_parser
         match = parser.OFPMatch()
-        actions = parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
-                                          ofproto.OFPCML_NO_BUFFER)
+        actions = parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
+                                                                                        [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER, 
+                                                                                        ofproto.OFPCML_NO_BUFFER)])
         inst = [actions]
         self.add_flow(dp, table_id=0,  priority=0, match=match, inst=inst)
 
@@ -116,6 +120,9 @@ class SimpleSwitch13(app_manager.RyuApp):
         pkt = packet.Packet(ev.msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
 
+        if eth.ethertype == ether_types.ETH_TYPE_IPV6:
+            # ignore IPV6
+            return
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             # ignore lldp packet
             return
@@ -125,6 +132,8 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         if (eth.ethertype == ether_types.ETH_TYPE_IP):
             self.logger.info("This is packet in message")
+            self.logger.info("DPID")
+            self.logger.info(dp.id)
             self.logger.info(pkt)
             self.handle_ip(dp, ev.msg)
 
@@ -148,52 +157,87 @@ class SimpleSwitch13(app_manager.RyuApp):
             hub.sleep(self.sleepTime)
         
     def _create_topo(self):
-        while len(self.datapaths) == 7:
-            current_hour = 19#dt.datetime.now().hour
-            current_minute = 8#dt.datetime.now().minute
-            if current_hour != self.last_time.hour and current_minute != self.last_time.minute:
-                self.current_topo = self.time_expand_topo.slice_topo(datetime.datetime.now().hour, datetime.datetime.now().minute)
-                self.update_flow_table()
-            #virtue_topo.show_topo(self.current_topo)
-            hub.sleep(self.sleepTime)
+        hub.sleep(10)
+        #self.logger.info("create_topo called 1!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        while True:
+            self.logger.info("create_topo called 2!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+            while len(self.datapaths) == 7:
+                self.logger.info("create_topo called 3!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                current_hour = 19#dt.datetime.now().hour
+                current_minute = 8#dt.datetime.now().minute
+                if current_hour != self.last_time.hour and current_minute != self.last_time.minute:
+                    self.logger.info("ssssssssssssssssssssssssssssssssssssssssssss")
+                    self.current_topo = self.time_expand_topo.slice_topo(current_hour, current_minute)
+                    self.update_flow_table()
+                    self.last_time = dt.datetime(year=2020,month=5,day=8,hour=current_hour,minute=current_minute)
+                hub.sleep(10)
+                #virtue_topo.show_topo(self.current_topo)
 
     def update_flow_table(self):
-        self.all_pairs_shortest_paths = self.current_topo.shortest_path(weight = weight)
+        self.logger.info("update_flow_table called!!!!!!!!!!!!!!!!!!!!!!!")
+        self.all_pairs_shortest_paths = nx.shortest_path(self.current_topo, weight = 'weight')
         for source in nx.shortest_path(self.current_topo, weight = 'weight'):
+            self.logger.info( "source")
+            self.logger.info( source)
             targets_paths = self.all_pairs_shortest_paths[source]
+            self.logger.info( "targets_paths")
+            self.logger.info( targets_paths)
             for target in targets_paths:
+                self.logger.info( "target")
+                self.logger.info( target)
                 shortest_path = targets_paths[target]
+                self.logger.info( "shortest_path")
+                self.logger.info( shortest_path)
                 if len(shortest_path) > 1:
                     self.distribute_flow_table(source, target, shortest_path)
     
     def distribute_flow_table(self, source, target, shortest_path):
-        dpid = self.config.json[source]["datapath"]["dpid"]
+        src_node_class = self.check_class(source)
+        dpid = self.config.json[src_node_class][source]["datapath"]["dpid"]
+        
+        dst_node_class = self.check_class(target)
+        dst_ip = self.config.json[dst_node_class][target]["host"]["ip_addr"]
+
         dp = self.datapaths[dpid]
         ofp = dp.ofproto
         parser = dp.ofproto_parser
-        
-        dst_ip = self.config.json[target]["host"]["ip_addr"]
+
         next_hop = shortest_path[1]
         out_port_num = self.config.json["link_port_num"][source+"_to_"+next_hop]
+        if dpid==1:
+            self.logger.info("11111111111111111111111111111111111111111111")
+            self.logger.info( source)
+            self.logger.info(next_hop)
+            self.logger.info(out_port_num)
 
-        match = parser.OFPMatch(ipv4_dst=dst_ip)
+        match = parser.OFPMatch(eth_type=ether.ETH_TYPE_IP, ipv4_dst=out_port_num)
         actions = parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                                   [parser.OFPActionOutput(out_port_num)])
         inst = [actions]
-        self.add_flow(dp, table_id=1, priority=1, match=match,  inst=inst)
+        self.add_flow(dp, table_id=0, priority=3, match=match,  inst=inst)
+    
+    def check_class(self, target):
+        if 'sr' in target:
+            return 'sat'
+        if 'group' in target:
+            return 'sat'
+        if 'dc' in target:
+            return 'dc'
 
     def add_flow(self, datapath, table_id,priority, match, inst, buffer_id=None):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         cookie = cookiemask = 0
         idle_timeout = hard_timeout = 0
+        self.logger.info("priority")
+        self.logger.info(priority)
 
         if buffer_id:
-            mod = parser.OFPFlowMod(datapath=datapath, cookie, cookie_mask, table_id, ofproto.OFPFC_ADD ,idle_timeout,
-                                    hard_timeout, buffer_id=buffer_id, priority=priority, match=match, instructions=inst)
+            mod = parser.OFPFlowMod(datapath=datapath, table_id = table_id, command = ofproto.OFPFC_ADD ,
+                                                                    buffer_id=buffer_id, priority=priority, match=match, instructions=inst)
         else:
-            mod = parser.OFPFlowMod(datapath=datapath, cookie, cookie_mask, table_id, ofproto.OFPFC_ADD ,idle_timeout,
-                                    hard_timeout, priority=priority, match=match, instructions=inst)
+            mod = parser.OFPFlowMod(datapath=datapath, table_id = table_id, command = ofproto.OFPFC_ADD ,
+                                                                    priority=priority, match=match, instructions=inst)
 
         self.logger.info('Here are flows')
         self.logger.info(mod)
@@ -212,7 +256,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         body = ev.msg.body
         dp = ev.msg.datapath
         dpid = dp.id
-        ofp_parser = dp.ofproto.ofproto_parser
+        ofp_parser = dp.ofproto_parser
         self.lastCount.setdefault(dpid, {})
 
         self.logger.info('datapath         port     '
@@ -280,6 +324,7 @@ class SimpleSwitch13(app_manager.RyuApp):
             )
         )
 
+        self.logger.info('ARP REPLYED!')
         self.send_packet(dp, port, pkt)
 
     # PacketOut used to send packet from controller to switch

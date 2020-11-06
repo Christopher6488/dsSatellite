@@ -1,5 +1,5 @@
 {
-    "stk_path": "/home/ubuntu/ryu/ryu/app/custom/sattest",
+    "stk_path": "/home/ubuntu/ryu/ryu/app/dsSatellite/sattest",
     "sat":{
         "group1":{
             "host":{
@@ -69,13 +69,15 @@
     },
 
     "dc":{
-        "host":{
-            "ip_addr": "10.0.0.7",
-            "eth0":"00:00:00:00:00:07"
-        },
-
-        "datapath": {
-            "dpid": 6
+        "dc1":{
+            "host":{
+                "ip_addr": "10.0.0.7",
+                "eth0":"00:00:00:00:00:07"
+            },
+    
+            "datapath": {
+                "dpid": 7
+            }
         } 
     },
 
@@ -101,7 +103,7 @@
         "sr1_to_sr2": 4,
         "sr1_to_sr3": 5,
         "sr1_to_host": 6,
-        "sr1_to_dc": 7,
+        "sr1_to_dc1": 7,
 
         "sr2_to_group1": 1,
         "sr2_to_group2": 2,
@@ -109,7 +111,7 @@
         "sr2_to_sr1": 4,
         "sr2_to_sr3": 5,
         "sr2_to_host": 6,
-        "sr2_to_dc": 7,
+        "sr2_to_dc1": 7,
 
         "sr3_to_group1": 1,
         "sr3_to_group2": 2,
@@ -117,12 +119,12 @@
         "sr3_to_sr1": 5,
         "sr3_to_sr2": 4,
         "sr3_to_host": 6,
-        "sr3_to_dc": 7,
+        "sr3_to_dc1": 7,
 
-        "dc_to_sr1": 1,
-        "dc_to_sr2": 2,
-        "dc_to_sr3": 3,
-        "dc_to_host": 4
+        "dc1_to_sr1": 1,
+        "dc1_to_sr2": 2,
+        "dc1_to_sr3": 3,
+        "dc1_to_host": 4
     }
 
 }
