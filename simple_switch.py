@@ -41,12 +41,13 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.time_expand_topo = virtue_topo.create_virtue_topo(self.config)
         self.topo_thread = hub.spawn(self._create_topo)
         self.all_pairs_shortest_paths = {}
-        self.flag = 1
+        self.next_table = 1
 
         #self.monitor_thread = hub.spawn(self._monitor)
         self.datapaths = {}
         self.lastCount = {}
         self.timeStamp=0
+
 
         self.arp_table = {self.config.json['sat']['group1']['host']['ip_addr']: self.config.json['sat']['group1']['host']['eth0'],
                           self.config.json['sat']['group2']['host']['ip_addr']: self.config.json['sat']['group2']['host']['eth0'],
@@ -75,6 +76,8 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.install_to_host_flow_entry(dp)
         # install table-miss flow entry
         self.install_table_miss_flow_entry(dp)
+        # install pointer table
+        self.install_pointer_table(dp)
 
     def install_to_host_flow_entry(self, dp):
         self.logger.info("install_to_host_flow_entry called!")
@@ -90,8 +93,17 @@ class SimpleSwitch13(app_manager.RyuApp):
                                                                                         [parser.OFPActionOutput(port=out_port_num)])
         inst = [actions]
         self.add_flow(dp, table_id=0, priority=0, match=match, inst=inst)
+
+    def install_pointer_table(self, dp):
+        self.logger.info("install_pointer_table_called!")
+        ofproto = dp.ofproto
+        parser = dp.ofproto_parser
+        match = parser.OFPMatch()
+        actions = parser.OFPInstructionGotoTable(self.next_table)
+        inst =  [actions]
+        self.add_flow(dp, table_id=0, priority=0, match=match, inst=inst)
     
-    def install_table_miss_flow_entry(self, dp):
+    def install_table_miss_flow_entry(self, dp, table_id):
         self.logger.info("install_table_miss_flow_entry called!")
         ofproto = dp.ofproto
         parser = dp.ofproto_parser
@@ -100,7 +112,8 @@ class SimpleSwitch13(app_manager.RyuApp):
                                                                                         [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER, 
                                                                                         ofproto.OFPCML_NO_BUFFER)])
         inst = [actions]
-        self.add_flow(dp, table_id=0,  priority=0, match=match, inst=inst)
+        self.add_flow(dp, table_id=1,  priority=0, match=match, inst=inst)
+        self.add_flow(dp, table_id=2,  priority=0, match=match, inst=inst)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -154,18 +167,22 @@ class SimpleSwitch13(app_manager.RyuApp):
         
     def _create_topo(self):
         hub.sleep(10)
-        while True:
-            while len(self.datapaths) == 7:
-                current_hour = 19#dt.datetime.now().hour
-                current_minute = 8#dt.datetime.now().minute
-               # if current_hour != self.last_time.hour and current_minute != self.last_time.minute:
+        current_hour = 19#dt.datetime.now().hour
+        current_minute = 8#dt.datetime.now().minute
+        while len(self.datapaths) == 7:
+            current_hour = current_hour + 1
+            current_minute = current_minute + 1
+            if current_hour != self.last_time.hour and current_minute != self.last_time.minute:
                 self.current_topo = self.time_expand_topo.slice_topo(current_hour, current_minute)
+
                 self.update_flow_table()
-                hub.sleep(20)
+                self.update_pointer_table()
                 self.clear_old_flow()
-                hub.sleep(10)
+
                 self.last_time = dt.datetime(year=2020,month=5,day=8,hour=current_hour,minute=current_minute)
-                #virtue_topo.show_topo(self.current_topo)
+            #virtue_topo.show_topo(self.current_topo)
+            self.next_table = (3 - pow(-1, self.next_table)) / 2
+            hub.sleep(10)
 
     def update_flow_table(self):
         self.all_pairs_shortest_paths = nx.shortest_path(self.current_topo, weight = 'weight')
@@ -174,23 +191,37 @@ class SimpleSwitch13(app_manager.RyuApp):
             for target in targets_paths:
                 shortest_path = targets_paths[target]
                 if len(shortest_path) > 1:
-                    self.distribute_flow_table(source, self.flag, target, shortest_path)
-        self.flag = ( 3 - pow(-1, self.flag) ) / 2
+                    self.distribute_flow_table(source, self.next_table, target, shortest_path)
     
-    def clear_old_flow(self):
+    def update_pointer_table(self):
         for datapath in self.datapaths.values():
             ofp = datapath.ofproto
             ofp_parser = datapath.ofproto_parser
             match = ofp_parser.OFPMatch()
-            req = ofp_parser.OFPFlowMod(datapath, 
-                                       table_id=0, command=ofp.OFPFC_DELETE,
-                                       buffer_id= None, 
-                                       match=match, instructions=[])
-            self.logger.info(datapath.id)
+            actions = parser.OFPInstructionGotoTable(self.next_table)
+            inst = [actions]
+            req = ofp_parser.OFPFlowMod(datapath, table_id=0, command=ofp.OFPFC_MODIFY,
+                                                                            match=match,cookie=0, cookie_mask=0,  buffer_id = ofp.OFP_NO_BUFFER,
+                                                                            idle_timeout=0, hard_timeout=0,flags=0, out_port=ofp.OFPP_ANY,  
+                                                                            out_group=ofp.OFPG_ANY, instructions=inst)
+            
+            datapath.send_msg(req)
+
+    def clear_old_flow(self):
+        last_table = (3 - pow(-1, self.next_table)) / 2
+        for datapath in self.datapaths.values():
+            ofp = datapath.ofproto
+            ofp_parser = datapath.ofproto_parser
+            match = ofp_parser.OFPMatch(eth_type=ether.ETH_TYPE_IP)
+            req = ofp_parser.OFPFlowMod(datapath, table_id=last_table, command=ofp.OFPFC_DELETE,
+                                                                            match=match,cookie=0, cookie_mask=0,  buffer_id = ofp.OFP_NO_BUFFER,
+                                                                            idle_timeout=0, hard_timeout=0,flags=0, out_port=ofp.OFPP_ANY,  
+                                                                            out_group=ofp.OFPG_ANY, instructions=[])
+            
             datapath.send_msg(req)
 
     
-    def distribute_flow_table(self, source, flag, target, shortest_path):
+    def distribute_flow_table(self, source, next_table, target, shortest_path):
         src_node_class = self.check_class(source)
         dpid = self.config.json[src_node_class][source]["datapath"]["dpid"]
         dst_node_class = self.check_class(target)
@@ -207,7 +238,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         actions = parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                                   [parser.OFPActionOutput(out_port_num)])
         inst = [actions]
-        self.add_flow(dp, table_id=0, priority=self.flag, match=match,  inst=inst)
+        self.add_flow(dp, table_id=next_table, priority=0, match=match,  inst=inst)
     
     def check_class(self, target):
         if 'sr' in target:
@@ -222,8 +253,6 @@ class SimpleSwitch13(app_manager.RyuApp):
         parser = datapath.ofproto_parser
         cookie = cookiemask = 0
         idle_timeout = hard_timeout = 0
-        self.logger.info("priority")
-        self.logger.info(priority)
 
         if buffer_id:
             mod = parser.OFPFlowMod(datapath=datapath, table_id = table_id, command = ofproto.OFPFC_ADD ,
