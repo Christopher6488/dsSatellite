@@ -44,12 +44,12 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.all_pairs_shortest_paths = {}
         self.next_table = 1
 
-        # self.monitor_thread = hub.spawn(self._monitor)
+        self.monitor_thread = hub.spawn(self._monitor)
         self.datapaths = {}
         self.lastCount = {}
         self.timeStamp=0
 
-        if(self.config.json["show_topo"]):
+        if(self.config.json["enable_show_topo"]):
             self.show_topo_thread = hub.spawn(self._show_topo)
 
 
@@ -68,6 +68,9 @@ class SimpleSwitch13(app_manager.RyuApp):
                                             self.config.json['sat']['sr2']['datapath']['dpid']: 'sr2',
                                             self.config.json['sat']['sr3']['datapath']['dpid']: 'sr3',
                                             self.config.json['dc']['dc1']['datapath']['dpid']: 'dc1'}
+        
+        self.monitor_dpid = [ self.config.json['sat'][node_name]['datapath']['dpid'] if self.check_class(node_name)=='sat' 
+                                                    else self.config.json['dc'][node_name]['datapath']['dpid'] for node_name in self.config.json["monitor_switch"]]
         
         self.last_time = dt.datetime(year=2020,month=5,day=8,hour=dt.datetime.now().hour,minute=dt.datetime.now().minute)
         self.sleepTime = 1.0
@@ -186,6 +189,7 @@ class SimpleSwitch13(app_manager.RyuApp):
             if current_hour != self.last_time.hour or current_minute != self.last_time.minute:
                 self.current_topo = self.time_expand_topo.slice_topo(current_hour, current_minute)
 
+                self.update_meter()
                 self.update_flow_table()
                 self.update_pointer_table()
                 self.clear_old_flow()
@@ -254,7 +258,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.add_flow(dp, table_id=next_table, priority=1, match=match,  inst=inst)
     
     def check_class(self, target):
-        if 'sr' in target:
+        if 'sr' in target:https://ryu.readthedocs.io/en/latest/ofproto_v1_3_ref.html?highlight=meter#ryu.ofproto.ofproto_v1_3_parser.OFPMeterMod
             return 'sat'
         if 'group' in target:
             return 'sat'
@@ -294,24 +298,25 @@ class SimpleSwitch13(app_manager.RyuApp):
         ofp_parser = dp.ofproto_parser
         self.lastCount.setdefault(dpid, {})
 
-        self.logger.info('datapath         port     '
-                         'rx-bytes rx-error '
-                         'tx-bytes tx-error speed(Mb/s)')
-        self.logger.info('---------------- -------- '
-                         '-------- -------- '
-                         '-------- -------- -------')
+        if dpid in self.monitor_dpid:
+            self.logger.info('datapath         port     '
+                            'rx-bytes rx-error '
+                            'tx-bytes tx-error speed(bits/s)')
+            self.logger.info('---------------- -------- '
+                            '-------- -------- '
+                            '-------- -------- -------')
         for stat in sorted(body, key=attrgetter('port_no')):
             if stat.port_no in self.lastCount[dpid]:
                 speed = ((stat.rx_bytes + stat.tx_bytes) - self.lastCount[dpid][stat.port_no]) * 8 / (
-                            self.sleepTime * 1024 * 1024)
+                            self.sleepTime)
             else:
-                speed = (stat.rx_bytes + stat.tx_bytes) * 8 / (self.sleepTime * 1024 * 1024)
+                speed = (stat.rx_bytes + stat.tx_bytes) * 8 / (self.sleepTime )
 
-            self.timeStamp += 1
-            self.logger.info('%016x %8x %8d %8d %8d %8d %.2f',
-                                dpid, stat.port_no,
-                                stat.rx_bytes, stat.rx_errors,
-                                stat.tx_bytes, stat.tx_errors, speed)
+            if dpid in self.monitor_dpid:
+                self.logger.info('%016x %8x %8d %8d %8d %8d %.2f',
+                                    dpid, stat.port_no,
+                                    stat.rx_bytes, stat.rx_errors,
+                                    stat.tx_bytes, stat.tx_errors, speed)
             self.lastCount[dpid][stat.port_no] = stat.rx_bytes + stat.tx_bytes
 
     # PacketOut used to send packet from controller to switch

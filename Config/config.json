@@ -1,6 +1,11 @@
 {
     "stk_path": "/home/ubuntu/ryu/ryu/app/dsSatellite/sattest",
-    "show_topo": true,
+    
+    "enable_show_topo": true,
+
+    "enable_monitor": true,
+    "monitor_switch": ["group1", "sr1"],
+
     "sat":{
         "group1":{
             "host":{
