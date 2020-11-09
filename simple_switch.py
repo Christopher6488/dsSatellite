@@ -92,7 +92,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         actions = parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
                                                                                         [parser.OFPActionOutput(port=out_port_num)])
         inst = [actions]
-        self.add_flow(dp, table_id=0, priority=0, match=match, inst=inst)
+        self.add_flow(dp, table_id=0, priority=1, match=match, inst=inst)
 
     def install_pointer_table(self, dp):
         self.logger.info("install_pointer_table_called!")
@@ -103,7 +103,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         inst =  [actions]
         self.add_flow(dp, table_id=0, priority=0, match=match, inst=inst)
     
-    def install_table_miss_flow_entry(self, dp, table_id):
+    def install_table_miss_flow_entry(self, dp):
         self.logger.info("install_table_miss_flow_entry called!")
         ofproto = dp.ofproto
         parser = dp.ofproto_parser
@@ -169,10 +169,17 @@ class SimpleSwitch13(app_manager.RyuApp):
         hub.sleep(10)
         current_hour = 19#dt.datetime.now().hour
         current_minute = 8#dt.datetime.now().minute
+        self.logger.info("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         while len(self.datapaths) == 7:
-            current_hour = current_hour + 1
-            current_minute = current_minute + 1
-            if current_hour != self.last_time.hour and current_minute != self.last_time.minute:
+            self.logger.info("222222222222222222222222222222222222222222222222222")
+            self.logger.info(self.last_time.hour)
+            self.logger.info(self.last_time.minute)
+            if current_hour != self.last_time.hour or current_minute != self.last_time.minute:
+                self.logger.info("STARTED!!!!!!!!!!!!!!!!!!!!!!")
+                self.logger.info("STARTED!!!!!!!!!!!!!!!!!!!!!!")
+                self.logger.info("STARTED!!!!!!!!!!!!!!!!!!!!!!")
+                self.logger.info("STARTED!!!!!!!!!!!!!!!!!!!!!!")
+                self.logger.info("STARTED!!!!!!!!!!!!!!!!!!!!!!")
                 self.current_topo = self.time_expand_topo.slice_topo(current_hour, current_minute)
 
                 self.update_flow_table()
@@ -180,9 +187,11 @@ class SimpleSwitch13(app_manager.RyuApp):
                 self.clear_old_flow()
 
                 self.last_time = dt.datetime(year=2020,month=5,day=8,hour=current_hour,minute=current_minute)
+                current_hour = current_hour + 1
+                current_minute = current_minute + 1
             #virtue_topo.show_topo(self.current_topo)
             self.next_table = (3 - pow(-1, self.next_table)) / 2
-            hub.sleep(10)
+            hub.sleep(60)
 
     def update_flow_table(self):
         self.all_pairs_shortest_paths = nx.shortest_path(self.current_topo, weight = 'weight')
@@ -198,9 +207,9 @@ class SimpleSwitch13(app_manager.RyuApp):
             ofp = datapath.ofproto
             ofp_parser = datapath.ofproto_parser
             match = ofp_parser.OFPMatch()
-            actions = parser.OFPInstructionGotoTable(self.next_table)
+            actions = ofp_parser.OFPInstructionGotoTable(self.next_table)
             inst = [actions]
-            req = ofp_parser.OFPFlowMod(datapath, table_id=0, command=ofp.OFPFC_MODIFY,
+            req = ofp_parser.OFPFlowMod(datapath, table_id=0, command=ofp.OFPFC_MODIFY_STRICT,
                                                                             match=match,cookie=0, cookie_mask=0,  buffer_id = ofp.OFP_NO_BUFFER,
                                                                             idle_timeout=0, hard_timeout=0,flags=0, out_port=ofp.OFPP_ANY,  
                                                                             out_group=ofp.OFPG_ANY, instructions=inst)
