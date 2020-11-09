@@ -1,4 +1,5 @@
 /__pycache__
 /.vscode
-/Config.pyc
 /*.pyc
+virtue_topo/*.pyc
+Config/*.pyc

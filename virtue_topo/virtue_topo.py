@@ -74,6 +74,7 @@ def create_virtue_topo(config):
     return satnet
 
 def show_topo(GG_):
+    plt.cla()
     plt.subplot(111)
     pos = nx.circular_layout(GG_)
     nx.draw(GG_,pos=pos,edgelist=None,
@@ -85,7 +86,7 @@ def show_topo(GG_):
                 with_labels=True,
                 node_color=['r' if d['type']=='sr' else 'b' for (u,d) in GG_.nodes(data=True)],
                 )
-    plt.show()
+    plt.pause(0.5)
 
 def main():
     config_path =  '/home/ubuntu/ryu/ryu/app/dsSatellite/Config/config.json'

@@ -1,6 +1,6 @@
 {
     "stk_path": "/home/ubuntu/ryu/ryu/app/dsSatellite/sattest",
-    "hard_time": 120,
+    "show_topo": true,
     "sat":{
         "group1":{
             "host":{

@@ -15,6 +15,7 @@
 import datetime as dt
 from operator import attrgetter
 
+import matplotlib.pyplot as plt
 import networkx as nx
 from ryu.base import app_manager
 from ryu.controller import ofp_event
@@ -43,10 +44,13 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.all_pairs_shortest_paths = {}
         self.next_table = 1
 
-        #self.monitor_thread = hub.spawn(self._monitor)
+        # self.monitor_thread = hub.spawn(self._monitor)
         self.datapaths = {}
         self.lastCount = {}
         self.timeStamp=0
+
+        if(self.config.json["show_topo"]):
+            self.show_topo_thread = hub.spawn(self._show_topo)
 
 
         self.arp_table = {self.config.json['sat']['group1']['host']['ip_addr']: self.config.json['sat']['group1']['host']['eth0'],
@@ -164,6 +168,14 @@ class SimpleSwitch13(app_manager.RyuApp):
             for dp in self.datapaths.values():
                 self._request_stats(dp)
             hub.sleep(self.sleepTime)
+    
+    def _show_topo(self):
+        plt.ion()
+        while True:
+            virtue_topo.show_topo(self.current_topo)
+            hub.sleep(1)
+        plt.ioff()
+        plt.show()
         
     def _create_topo(self):
         hub.sleep(10)
@@ -181,7 +193,6 @@ class SimpleSwitch13(app_manager.RyuApp):
                 self.last_time = dt.datetime(year=2020,month=5,day=8,hour=current_hour,minute=current_minute)
                 current_hour = current_hour
                 current_minute = current_minute + 1
-            #virtue_topo.show_topo(self.current_topo)
             self.next_table = (3 - pow(-1, self.next_table)) / 2
             hub.sleep(60)
 
@@ -199,8 +210,7 @@ class SimpleSwitch13(app_manager.RyuApp):
             ofp = datapath.ofproto
             ofp_parser = datapath.ofproto_parser
             match = ofp_parser.OFPMatch()
-            self.logger.info("update_pointer_table:   ")
-            self.logger.info(self.next_table)
+            self.logger.info("Point to table:   %x", self.next_table)
             actions = ofp_parser.OFPInstructionGotoTable(self.next_table)
             inst = [actions]
             req = ofp_parser.OFPFlowMod(datapath, table_id=0, command=ofp.OFPFC_MODIFY_STRICT,
