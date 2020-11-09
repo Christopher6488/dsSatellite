@@ -171,15 +171,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         current_minute = 8#dt.datetime.now().minute
         self.logger.info("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         while len(self.datapaths) == 7:
-            self.logger.info("222222222222222222222222222222222222222222222222222")
-            self.logger.info(self.last_time.hour)
-            self.logger.info(self.last_time.minute)
             if current_hour != self.last_time.hour or current_minute != self.last_time.minute:
-                self.logger.info("STARTED!!!!!!!!!!!!!!!!!!!!!!")
-                self.logger.info("STARTED!!!!!!!!!!!!!!!!!!!!!!")
-                self.logger.info("STARTED!!!!!!!!!!!!!!!!!!!!!!")
-                self.logger.info("STARTED!!!!!!!!!!!!!!!!!!!!!!")
-                self.logger.info("STARTED!!!!!!!!!!!!!!!!!!!!!!")
                 self.current_topo = self.time_expand_topo.slice_topo(current_hour, current_minute)
 
                 self.update_flow_table()
@@ -187,7 +179,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                 self.clear_old_flow()
 
                 self.last_time = dt.datetime(year=2020,month=5,day=8,hour=current_hour,minute=current_minute)
-                current_hour = current_hour + 1
+                current_hour = current_hour
                 current_minute = current_minute + 1
             #virtue_topo.show_topo(self.current_topo)
             self.next_table = (3 - pow(-1, self.next_table)) / 2
@@ -207,11 +199,13 @@ class SimpleSwitch13(app_manager.RyuApp):
             ofp = datapath.ofproto
             ofp_parser = datapath.ofproto_parser
             match = ofp_parser.OFPMatch()
+            self.logger.info("update_pointer_table:   ")
+            self.logger.info(self.next_table)
             actions = ofp_parser.OFPInstructionGotoTable(self.next_table)
             inst = [actions]
             req = ofp_parser.OFPFlowMod(datapath, table_id=0, command=ofp.OFPFC_MODIFY_STRICT,
                                                                             match=match,cookie=0, cookie_mask=0,  buffer_id = ofp.OFP_NO_BUFFER,
-                                                                            idle_timeout=0, hard_timeout=0,flags=0, out_port=ofp.OFPP_ANY,  
+                                                                            idle_timeout=0, hard_timeout=0,flags=0, out_port=ofp.OFPP_ANY,  priority=0,
                                                                             out_group=ofp.OFPG_ANY, instructions=inst)
             
             datapath.send_msg(req)
@@ -247,7 +241,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         actions = parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                                   [parser.OFPActionOutput(out_port_num)])
         inst = [actions]
-        self.add_flow(dp, table_id=next_table, priority=0, match=match,  inst=inst)
+        self.add_flow(dp, table_id=next_table, priority=1, match=match,  inst=inst)
     
     def check_class(self, target):
         if 'sr' in target:
@@ -270,8 +264,8 @@ class SimpleSwitch13(app_manager.RyuApp):
             mod = parser.OFPFlowMod(datapath=datapath, table_id = table_id, command = ofproto.OFPFC_ADD ,
                                                                     priority=priority, match=match, instructions=inst)
 
-        self.logger.info('Here are flows')
-        self.logger.info(mod)
+        # self.logger.info('Here are flows')
+        # self.logger.info(mod)
         datapath.send_msg(mod)        
 
     def _request_stats(self, datapath):
