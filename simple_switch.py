@@ -85,6 +85,16 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.install_table_miss_flow_entry(dp)
         # install pointer table
         self.install_pointer_table(dp)
+        # install meter table
+        self.install_meter_table(dp)
+    
+    def install_meter_table(self, dp):
+        self.logger.info("install_meter_table_called!")
+        ofproto = dp.port_no
+        parser = dp.ofproto_parser
+
+        for i in range(10):
+            parser.OFPMeterMod(datapath=dp, command=OFPMC_ADD, flag=OFPMF_KBPS, meter_id=i, bands=OFPMeterBandDrop(rate=0))
 
     def install_to_host_flow_entry(self, dp):
         self.logger.info("install_to_host_flow_entry called!")
@@ -189,16 +199,34 @@ class SimpleSwitch13(app_manager.RyuApp):
             if current_hour != self.last_time.hour or current_minute != self.last_time.minute:
                 self.current_topo = self.time_expand_topo.slice_topo(current_hour, current_minute)
 
-                self.update_meter()
+                self.update_meter_table()
                 self.update_flow_table()
                 self.update_pointer_table()
-                self.clear_old_flow()
+                self.clear_old_meter_table()
+                self.clear_old_flow_table()
 
                 self.last_time = dt.datetime(year=2020,month=5,day=8,hour=current_hour,minute=current_minute)
                 current_hour = current_hour
                 current_minute = current_minute + 1
             self.next_table = (3 - pow(-1, self.next_table)) / 2
             hub.sleep(60)
+
+    def update_meter_table(self):
+        for u, v, weight in self.current_topo.edges.data("weight"):
+            if weight is not None:
+                vel = self.calculate_vel(weight)
+                u_class, v_class = self.check_class(u), check_class(v)
+                u_dpid, v_dpid = self.config.json[u_class][u]["datapath"]["dpid"], self.config.json[v_class][v]["datapath"]["dpid"]
+                u_to_v_port_num, v_to_u_port_num = self.config.json["link_port_num"][u+"_to_"+v], self.config.json["link_port_num"][v+"_to_"+u]
+                u_dp, v_dp = self.datapaths[u_dpid], self.datapaths[v_dpid]
+                u_parser, v_parser = u_dp.ofproto_parser, v_dp.ofproto_parser
+                u_parser.OFPMeterMod(u_dp, command=OFPMC_MODIFY, flags=OFPMF_KBPS, meter_id=u_to_v_port_num, bands=OFPMeterBandDrop(rate=vel))
+                v_parser.OFPMeterMod(v_dp, command=OFPMC_MODIFY, flags=OFPMF_KBPS, meter_id=v_to_u_port_num, bands=OFPMeterBandDrop(rate=vel))
+
+    def calculate(self, weight):
+        #TODO
+
+        return 5000
 
     def update_flow_table(self):
         self.all_pairs_shortest_paths = nx.shortest_path(self.current_topo, weight = 'weight')
@@ -224,7 +252,7 @@ class SimpleSwitch13(app_manager.RyuApp):
             
             datapath.send_msg(req)
 
-    def clear_old_flow(self):
+    def clear_old_flow_table(self):
         last_table = (3 - pow(-1, self.next_table)) / 2
         for datapath in self.datapaths.values():
             ofp = datapath.ofproto
@@ -252,9 +280,10 @@ class SimpleSwitch13(app_manager.RyuApp):
         out_port_num = self.config.json["link_port_num"][source+"_to_"+next_hop]
 
         match = parser.OFPMatch(eth_type=ether.ETH_TYPE_IP, ipv4_dst=dst_ip)
+        meter = parser.OFPInstructionMeter(meter_id=out_port_num)
         actions = parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                                   [parser.OFPActionOutput(out_port_num)])
-        inst = [actions]
+        inst = [meter, actions]
         self.add_flow(dp, table_id=next_table, priority=1, match=match,  inst=inst)
     
     def check_class(self, target):
