@@ -23,14 +23,14 @@ from ryu.controller.handler import (CONFIG_DISPATCHER, DEAD_DISPATCHER,
                                     MAIN_DISPATCHER, set_ev_cls)
 from ryu.lib import hub
 from ryu.lib.packet import arp, ether_types, ethernet, icmp, ipv4, packet, tcp
-from ryu.ofproto import ether, ofproto_v1_3
+from ryu.ofproto import ether, ofproto_v1_4
 
 from Config import Config
 from virtue_topo import virtue_topo
 
 
 class SimpleSwitch13(app_manager.RyuApp):
-    OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
+    OFP_VERSIONS = [ofproto_v1_4.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
@@ -43,11 +43,13 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.topo_thread = hub.spawn(self._create_topo)
         self.all_pairs_shortest_paths = {}
         self.next_table = 1
-
-        self.monitor_thread = hub.spawn(self._monitor)
+        
         self.datapaths = {}
         self.lastCount = {}
         self.timeStamp=0
+
+        if(self.config.json["enable_monitor"]):
+            self.monitor_thread = hub.spawn(self._monitor)
 
         if(self.config.json["enable_show_topo"]):
             self.show_topo_thread = hub.spawn(self._show_topo)
@@ -90,17 +92,18 @@ class SimpleSwitch13(app_manager.RyuApp):
     
     def install_meter_table(self, dp):
         self.logger.info("install_meter_table_called!")
-        ofproto = dp.port_no
+        ofproto = dp.ofproto
         parser = dp.ofproto_parser
 
-        for i in range(10):
-            parser.OFPMeterMod(datapath=dp, command=OFPMC_ADD, flag=OFPMF_KBPS, meter_id=i, bands=OFPMeterBandDrop(rate=0))
+        for i in range(1,10):
+            meter_mod = parser.OFPMeterMod(datapath=dp, command=ofproto.OFPMC_ADD, flags=ofproto.OFPMF_KBPS, meter_id=i, bands=[parser.OFPMeterBandDrop(rate=100, burst_size=0)])
+            print(meter_mod)
+            dp.send_msg(meter_mod)
 
     def install_to_host_flow_entry(self, dp):
         self.logger.info("install_to_host_flow_entry called!")
         ofproto = dp.ofproto
         parser = dp.ofproto_parser
-        print(self.dpid_table)
         host = self.dpid_table[dp.id]
         node_class = self.check_class(host)
         
@@ -176,11 +179,16 @@ class SimpleSwitch13(app_manager.RyuApp):
                 self.logger.debug('unregister datapath: %016x', datapath.id)
                 del self.datapaths[datapath.id]
 
+    def handle_ip(self, dp, msg):
+        self.logger.info("handle_ip called!")
+        return
+        
     def _monitor(self):
+        hub.sleep(10)
         while True:
             for dp in self.datapaths.values():
                 self._request_stats(dp)
-            hub.sleep(self.sleepTime)
+            hub.sleep(self.sleepTime*5)
     
     def _show_topo(self):
         plt.ion()
@@ -191,18 +199,17 @@ class SimpleSwitch13(app_manager.RyuApp):
         plt.show()
         
     def _create_topo(self):
-        hub.sleep(10)
+        hub.sleep(100)
         current_hour = 19#dt.datetime.now().hour
         current_minute = 8#dt.datetime.now().minute
         self.logger.info("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         while len(self.datapaths) == 7:
             if current_hour != self.last_time.hour or current_minute != self.last_time.minute:
                 self.current_topo = self.time_expand_topo.slice_topo(current_hour, current_minute)
-
-                self.update_meter_table()
+                self.logger.info("????????????????????????????????")
+                ##self.update_meter_table()
                 self.update_flow_table()
                 self.update_pointer_table()
-                self.clear_old_meter_table()
                 self.clear_old_flow_table()
 
                 self.last_time = dt.datetime(year=2020,month=5,day=8,hour=current_hour,minute=current_minute)
@@ -215,15 +222,19 @@ class SimpleSwitch13(app_manager.RyuApp):
         for u, v, weight in self.current_topo.edges.data("weight"):
             if weight is not None:
                 vel = self.calculate_vel(weight)
-                u_class, v_class = self.check_class(u), check_class(v)
+
+                u_class, v_class = self.check_class(u), self.check_class(v)
                 u_dpid, v_dpid = self.config.json[u_class][u]["datapath"]["dpid"], self.config.json[v_class][v]["datapath"]["dpid"]
                 u_to_v_port_num, v_to_u_port_num = self.config.json["link_port_num"][u+"_to_"+v], self.config.json["link_port_num"][v+"_to_"+u]
+               
                 u_dp, v_dp = self.datapaths[u_dpid], self.datapaths[v_dpid]
                 u_parser, v_parser = u_dp.ofproto_parser, v_dp.ofproto_parser
-                u_parser.OFPMeterMod(u_dp, command=OFPMC_MODIFY, flags=OFPMF_KBPS, meter_id=u_to_v_port_num, bands=OFPMeterBandDrop(rate=vel))
-                v_parser.OFPMeterMod(v_dp, command=OFPMC_MODIFY, flags=OFPMF_KBPS, meter_id=v_to_u_port_num, bands=OFPMeterBandDrop(rate=vel))
+                u_ofproto, v_ofproto = u_dp.ofproto, v_dp.ofproto
 
-    def calculate(self, weight):
+                u_parser.OFPMeterMod(u_dp, command=u_ofproto.OFPMC_MODIFY, flags=u_ofproto.OFPMF_KBPS, meter_id=u_to_v_port_num, bands=u_parser.OFPMeterBandDrop(rate=vel))
+                v_parser.OFPMeterMod(v_dp, command=v_ofproto.OFPMC_MODIFY, flags=v_ofproto.OFPMF_KBPS, meter_id=v_to_u_port_num, bands=v_parser.OFPMeterBandDrop(rate=vel))
+
+    def calculate_vel(self, weight):
         #TODO
 
         return 5000
@@ -283,11 +294,11 @@ class SimpleSwitch13(app_manager.RyuApp):
         meter = parser.OFPInstructionMeter(meter_id=out_port_num)
         actions = parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                                   [parser.OFPActionOutput(out_port_num)])
-        inst = [meter, actions]
+        inst = [actions]
         self.add_flow(dp, table_id=next_table, priority=1, match=match,  inst=inst)
     
     def check_class(self, target):
-        if 'sr' in target:https://ryu.readthedocs.io/en/latest/ofproto_v1_3_ref.html?highlight=meter#ryu.ofproto.ofproto_v1_3_parser.OFPMeterMod
+        if 'sr' in target:
             return 'sat'
         if 'group' in target:
             return 'sat'
