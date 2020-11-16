@@ -294,7 +294,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         meter = parser.OFPInstructionMeter(meter_id=out_port_num)
         actions = parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                                   [parser.OFPActionOutput(out_port_num)])
-        inst = [actions]
+        inst = [meter,actions]
         self.add_flow(dp, table_id=next_table, priority=1, match=match,  inst=inst)
     
     def check_class(self, target):
