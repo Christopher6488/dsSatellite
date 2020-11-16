@@ -1,6 +1,6 @@
 #!/bin/bash
 
-FILE_PATH=./Config/config.json
+FILE_PATH=../Config/config.json
 JQ_EXEC='which jq'
 
 while getopts m:b:s:t: option
