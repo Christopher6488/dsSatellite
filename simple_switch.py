@@ -199,14 +199,14 @@ class SimpleSwitch13(app_manager.RyuApp):
         plt.show()
         
     def _create_topo(self):
-        hub.sleep(100)
+        hub.sleep(10)
         current_hour = 19#dt.datetime.now().hour
         current_minute = 8#dt.datetime.now().minute
-        self.logger.info("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        self.logger.info("_create_topo CALLED  !")
         while len(self.datapaths) == 7:
             if current_hour != self.last_time.hour or current_minute != self.last_time.minute:
                 self.current_topo = self.time_expand_topo.slice_topo(current_hour, current_minute)
-                self.logger.info("????????????????????????????????")
+                self.logger.info("Start Update!")
                 ##self.update_meter_table()
                 self.update_flow_table()
                 self.update_pointer_table()
@@ -216,7 +216,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                 current_hour = current_hour
                 current_minute = current_minute + 1
             self.next_table = (3 - pow(-1, self.next_table)) / 2
-            hub.sleep(60)
+            hub.sleep(1000000)
 
     def update_meter_table(self):
         for u, v, weight in self.current_topo.edges.data("weight"):

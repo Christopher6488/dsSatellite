@@ -3,3 +3,13 @@
 /*.pyc
 virtue_topo/*.pyc
 Config/*.pyc
+/build
+/bin
+/lib
+/.vscode
+/.history
+.history
+.vscode
+modules/web/utils
+*.swp
+*.db

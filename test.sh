@@ -1,42 +1,50 @@
 #!/bin/bash
 
-path=。/Config/config.json
-JQ_EXEC=' which jq'
+FILE_PATH=./Config/config.json
+JQ_EXEC='which jq'
 
-while getopts b:m:s:t: option
+while getopts m:b:s:t: option
 do 
-    case "$option" in
-        b)
-            bandwith = $OPTARG;;
+    case $option in
         m)
             mode=$OPTARG;;
         s)
-            node= $OPTARG
-            if [[ "dc" =~ "$class" ]];
+            node=$OPTARG
+            if [[ "dc" =~ ${node} ]];
             then
-                server_ip = $(cat $FILE_PATH) | ${JQ_EXEC} .dc.dc1.host.ip_addr | sed 's/\"//g'
+                server_ip=$(cat $FILE_PATH | jq ".dc.${node}.host.ip_addr" | sed 's/\"//g')
             else
-                server_ip = $(cat $FILE_PATH) | ${JQ_EXEC} .sat.${node}.host.ip_addr | sed 's/\"//g'
-            fi
+                server_ip=$(cat $FILE_PATH | jq ".sat.${node}.host.ip_addr" | sed 's/\"//g')
+            fi;;
+        b)
+            bandwith=$OPTARG;;
         t)
-            duration = $OPTARG;;
+            duration=$OPTARG;;
         \?)
             echo "Usage: args [-m] [-b] [-s] [-t]"
             echo "-m means mode (server or client)"
-            echo "-b means bandwith (only used in client mode)"
+            echo "-b means bandwith (bits/s only used in client mode)"
             echo "-s means the server to ping (group1-3, sr1-3, dc1; only used in client mode)"
             echo "-t iperf duration (only used in client mode)"
             exit 1;;
     esac
 done
 
-if ["${mode}" -eq "server"]
+if [ "${mode}" == "server" ];
 then
     echo "Set server mode"
-    exec iperf -u -s -p 66666
-else if ["${mode}" -eq "client"]
-then
-    echo "Set client mode"
-    exec iperf -u -c ${server_ip} -b ${bandwith } -t $duration -i 1 -p 666666
+    echo ${bandwith}
+    iperf -u -s -p 8899
+else
+    if [ ! ${bandwith} ] || [ ! ${duration} ] || [ ! ${node} ];then
+        echo "Usage: args [-m] [-b] [-s] [-t]"
+        echo "-m means mode (server or client)"
+        echo "-b means bandwith (bits/s, only used in client mode)"
+        echo "-s means the server to ping (group1-3, sr1-3, dc1; only used in client mode)"
+        echo "-t iperf duration (only used in client mode)"
+    else
+        echo -e "Set client mode! \nServer is ${node}\nServer ip is ${server_ip}\nBandwith: ${bandwith}\nDuration: ${duration}s\n"
+        iperf -u -c ${server_ip} -b ${bandwith} -t $duration -i 1 -p 8899
+    fi
 fi
 
