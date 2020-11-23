@@ -6,6 +6,8 @@
     "enable_monitor": true,
     "monitor_switch": ["group1", "sr1"],
 
+    "bandwith" : 50,
+
     "sat":{
         "group1":{
             "host":{

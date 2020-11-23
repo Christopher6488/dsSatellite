@@ -23,14 +23,14 @@ from ryu.controller.handler import (CONFIG_DISPATCHER, DEAD_DISPATCHER,
                                     MAIN_DISPATCHER, set_ev_cls)
 from ryu.lib import hub
 from ryu.lib.packet import arp, ether_types, ethernet, icmp, ipv4, packet, tcp
-from ryu.ofproto import ether, ofproto_v1_4
+from ryu.ofproto import ether, ofproto_v1_3
 
 from Config import Config
 from virtue_topo import virtue_topo
 
 
 class SimpleSwitch13(app_manager.RyuApp):
-    OFP_VERSIONS = [ofproto_v1_4.OFP_VERSION]
+    OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
@@ -96,7 +96,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         parser = dp.ofproto_parser
 
         for i in range(1,10):
-            meter_mod = parser.OFPMeterMod(datapath=dp, command=ofproto.OFPMC_ADD, flags=ofproto.OFPMF_KBPS, meter_id=i, bands=[parser.OFPMeterBandDrop(rate=1000, burst_size=0)])
+            meter_mod = parser.OFPMeterMod(datapath=dp, command=ofproto.OFPMC_ADD, flags=ofproto.OFPMF_KBPS, meter_id=i, bands=[parser.OFPMeterBandDrop(rate=10000, burst_size=0)])
             dp.send_msg(meter_mod)
 
     def install_to_host_flow_entry(self, dp):
