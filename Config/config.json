@@ -1,6 +1,5 @@
 {
-    "stk_path": "/home/ubuntu/ryu/ryu/app/dsSatellite/sattest",
-    
+    "stk_path": "/home/ubuntu/ryu/ryu/app/dsSatellite/sat",
     "enable_show_topo": false,
 
     "enable_monitor": true,

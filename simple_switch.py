@@ -74,7 +74,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.monitor_dpid = [ self.config.json['sat'][node_name]['datapath']['dpid'] if self.check_class(node_name)=='sat' 
                                                     else self.config.json['dc'][node_name]['datapath']['dpid'] for node_name in self.config.json["monitor_switch"]]
         
-        self.last_time = dt.datetime(year=2020,month=5,day=8,hour=dt.datetime.now().hour,minute=dt.datetime.now().minute)
+        self.last_time = dt.datetime(year=2020,month=8,day=18,hour=dt.datetime.now().hour,minute=dt.datetime.now().minute)
         self.sleepTime = 1.0
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -198,8 +198,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         
     def _create_topo(self):
         hub.sleep(30)
-        current_hour = 19#dt.datetime.now().hour
-        current_minute = 8#dt.datetime.now().minute
+        current_time = dt.datetime(year=2020, month=8, day=18, hour=4, minute=26)
         self.logger.info("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.logger.info("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.logger.info("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
@@ -207,17 +206,15 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.logger.info("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.install_init_meter_table()
         while len(self.datapaths) == 7:
-            if current_hour != self.last_time.hour or current_minute != self.last_time.minute:
-                self.current_topo = self.time_expand_topo.slice_topo(current_hour, current_minute)
+            if current_time != self.last_time:
+                self.current_topo = self.time_expand_topo.slice_topo(current_time)
                 self.logger.info("Start Update!")
                 #self.update_meter_table()
                 self.update_flow_table()
                 self.update_pointer_table()
                 self.clear_old_flow_table()
 
-                self.last_time = dt.datetime(year=2020,month=5,day=8,hour=current_hour,minute=current_minute)
-                current_hour = current_hour
-                current_minute = current_minute + 1
+                self.last_time = current_time
             self.next_table = (3 - pow(-1, self.next_table)) / 2
             hub.sleep(1000000)
 

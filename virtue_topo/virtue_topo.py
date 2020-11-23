@@ -5,12 +5,12 @@ import sys
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) #当前程序上上一级目录，这里为mycompany
 sys.path.append(BASE_DIR)
 
+import time
 from datetime import datetime
 
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-
 from Config import Config
 
 
@@ -39,13 +39,13 @@ class virtue_topo(nx.MultiGraph):
         #print(list(self.nodes(data=True)))
 
     def add_link(self, node0, node1, file_):
-        f = np.loadtxt(file_, delimiter=',', skiprows=1)
+        f = np.loadtxt(file_, delimiter=',', skiprows=1, dtype=bytes).astype(str)
         for data in f:
-            time_ = datetime(year=2020,month=5,day=8,hour=int(data[0]),minute=int(data[1]))
-            self.add_edge(node0, node1, time = time_, weight = data[2])
+            t = time.strptime(data[0], "%Y/%m/%d %H:%M:%S")
+            time_ = datetime(year=t.tm_year, month=t.tm_mon, day=t.tm_mday, hour=t.tm_hour, minute=t.tm_min)
+            self.add_edge(node0, node1, time = time_, weight = float(data[3]))
         
-    def slice_topo(self, hour_, minute_):
-        time = datetime(year=2020,month=5,day=8,hour=int(hour_),minute=int(minute_))
+    def slice_topo(self, time):
         GG = nx.Graph(time=time)
         for node in self.netnode:
             if 'group' in node:
@@ -91,13 +91,16 @@ def show_topo(GG_):
 def main():
     config_path =  '/home/ubuntu/ryu/ryu/app/dsSatellite/Config/config.json'
     config = Config.Config(config_path)
+   
     time_expand_network = create_virtue_topo(config)
-    topo = time_expand_network.slice_topo(19,8)
+
+    time_start=time.time()
+    dt = datetime(year=2020, month=8, day=18, hour=4, minute=15)
+    topo = time_expand_network.slice_topo(dt)
     all_pairs_shortest_paths = nx.shortest_path(topo,weight = 'weight')
     print(all_pairs_shortest_paths)
-    for x in all_pairs_shortest_paths:
-        print(x)
-    #print(all_pairs_shortest_paths)
+    time_end=time.time()
+    print('totally cost',time_end-time_start)
     show_topo(topo)
 
 if __name__ == '__main__':
