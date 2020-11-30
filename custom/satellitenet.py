@@ -67,6 +67,7 @@ class SingleSwitchTopo(Topo):
 def perfTest(config):
     "Create network and run simple performance test"
     topo = SingleSwitchTopo(config)
+    # net = Mininet(topo=topo,host=CPULimitedHost, link=TCULink, controller=RemoteController(name='controller',ip='127.0.0.1',port=6633))
     net = Mininet(topo=topo,host=CPULimitedHost, link=TCULink, controller=RemoteController(name='controller',ip='127.0.0.1',port=6633))
     net.start()
     # print "Dumping host connections"

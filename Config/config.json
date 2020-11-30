@@ -5,9 +5,9 @@
     "enable_monitor": false,
     "monitor_switch": ["group1", "sr1"],
 
-    "meter":false,
+    "meter":true,
 
-    "bandwith" : 500,
+    "bandwith" : 50,
 
     "sat":{
         "group1":{

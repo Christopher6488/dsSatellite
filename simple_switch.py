@@ -247,7 +247,7 @@ class SimpleSwitch13(app_manager.RyuApp):
     def calculate_vel(self, weight):
         #TODO
 
-        return 30000
+        return 10000
 
     def update_flow_table(self):
         self.all_pairs_shortest_paths = nx.shortest_path(self.current_topo, weight = 'weight')
