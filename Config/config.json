@@ -1,11 +1,13 @@
 {
     "stk_path": "/home/ubuntu/ryu/ryu/app/dsSatellite/sat",
-    "enable_show_topo": false,
+    "enable_show_topo": true,
 
-    "enable_monitor": true,
+    "enable_monitor": false,
     "monitor_switch": ["group1", "sr1"],
 
-    "bandwith" : 50,
+    "meter":false,
+
+    "bandwith" : 500,
 
     "sat":{
         "group1":{
