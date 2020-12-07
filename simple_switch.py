@@ -35,7 +35,7 @@ class SimpleSwitch13(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
 
-        self.config_path =  '/home/ubuntu/ryu/ryu/app/dsSatellite/Config/config.json'
+        self.config_path =  '/home/ubuntu/ryu/ryu/app/dsSatellite/Config/dsconfig.json'
         self.config = Config.Config(self.config_path)
 
         self.current_topo = nx.Graph()
@@ -63,13 +63,13 @@ class SimpleSwitch13(app_manager.RyuApp):
                           self.config.json['sat']['sr3']['host']['ip_addr']: self.config.json['sat']['sr3']['host']['eth0'],
                           self.config.json['dc']['dc1']['host']['ip_addr']: self.config.json['dc']['dc1']['host']['eth0']}
         
-        self.dpid_table = {self.config.json['sat']['group1']['datapath']['dpid']: 'group1', 
-                                            self.config.json['sat']['group2']['datapath']['dpid']: 'group2', 
-                                            self.config.json['sat']['group3']['datapath']['dpid']: 'group3',
-                                            self.config.json['sat']['sr1']['datapath']['dpid']: 'sr1',
-                                            self.config.json['sat']['sr2']['datapath']['dpid']: 'sr2',
-                                            self.config.json['sat']['sr3']['datapath']['dpid']: 'sr3',
-                                            self.config.json['dc']['dc1']['datapath']['dpid']: 'dc1'}
+        self.dpid_table = {self.config.json['sat']['group1']['datapath']['dpid_d']: 'group1', 
+                                            self.config.json['sat']['group2']['datapath']['dpid_d']: 'group2', 
+                                            self.config.json['sat']['group3']['datapath']['dpid_d']: 'group3',
+                                            self.config.json['sat']['sr1']['datapath']['dpid_d']: 'sr1',
+                                            self.config.json['sat']['sr2']['datapath']['dpid_d']: 'sr2',
+                                            self.config.json['sat']['sr3']['datapath']['dpid_d']: 'sr3',
+                                            self.config.json['dc']['dc1']['datapath']['dpid_d']: 'dc1'}
         
         self.monitor_dpid = [ self.config.json['sat'][node_name]['datapath']['dpid'] if self.check_class(node_name)=='sat' 
                                                     else self.config.json['dc'][node_name]['datapath']['dpid'] for node_name in self.config.json["monitor_switch"]]
@@ -81,14 +81,15 @@ class SimpleSwitch13(app_manager.RyuApp):
     def switch_features_handler(self, ev):
         self.logger.info("switch_features_handler called!")
         dp = ev.msg.datapath
-        # install to host flow entry
-        self.install_to_host_flow_entry(dp)
-        # install table-miss flow entry
-        self.install_table_miss_flow_entry(dp)
-        # install pointer table
-        self.install_pointer_table(dp)
-        # install meter table
-        self.install_meter_table(dp)
+        self.logger.info("datapath id is %016d", dp.id)
+        # # install to host flow entry
+        # self.install_to_host_flow_entry(dp)
+        # # install table-miss flow entry
+        # self.install_table_miss_flow_entry(dp)
+        # # install pointer table
+        # self.install_pointer_table(dp)
+        # # install meter table
+        # self.install_meter_table(dp)
     
     def install_meter_table(self, dp):
         self.logger.info("install_meter_table_called!")
@@ -170,11 +171,21 @@ class SimpleSwitch13(app_manager.RyuApp):
         datapath = ev.datapath
         if ev.state == MAIN_DISPATCHER:
             if datapath.id not in self.datapaths:
-                self.logger.debug('register datapath: %016x', datapath.id)
+                self.logger.debug('register datapath: %016d', datapath.id)
                 self.datapaths[datapath.id] = datapath
+
+                # install to host flow entry
+                self.install_to_host_flow_entry(datapath)
+                # install table-miss flow entry
+                self.install_table_miss_flow_entry(datapath)
+                # install pointer table
+                self.install_pointer_table(datapath)
+                # install meter table
+                self.install_meter_table(datapath)
+
         elif ev.state == DEAD_DISPATCHER:
             if datapath.id in self.datapaths:
-                self.logger.debug('unregister datapath: %016x', datapath.id)
+                self.logger.debug('unregister datapath: %016d', datapath.id)
                 del self.datapaths[datapath.id]
 
     def handle_ip(self, dp, msg):
@@ -201,10 +212,13 @@ class SimpleSwitch13(app_manager.RyuApp):
         current_time = dt.datetime(year=2020, month=8, day=18, hour=4, minute=26)
         self.logger.info("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.logger.info("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        self.logger.info("The number of datapaths is: %d", len(self.datapaths))
+        for key in self.datapaths.keys():
+            self.logger.info(key)
         self.logger.info("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.logger.info("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.logger.info("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        while len(self.datapaths) == 6:
+        while len(self.datapaths) == 8:
             if current_time != self.last_time:
                 self.current_topo = self.time_expand_topo.slice_topo(current_time)
                 self.logger.info("Start Update!")
@@ -231,7 +245,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                 vel = self.calculate_vel(weight)
 
                 u_class, v_class = self.check_class(u), self.check_class(v)
-                u_dpid, v_dpid = self.config.json[u_class][u]["datapath"]["dpid"], self.config.json[v_class][v]["datapath"]["dpid"]
+                u_dpid, v_dpid = self.config.json[u_class][u]["datapath"]["dpid_d"], self.config.json[v_class][v]["datapath"]["dpid_d"]
                 u_to_v_port_num, v_to_u_port_num = self.config.json["link_port_num"][u+"_to_"+v], self.config.json["link_port_num"][v+"_to_"+u]
                
                 u_dp, v_dp = self.datapaths[u_dpid], self.datapaths[v_dpid]
@@ -289,7 +303,7 @@ class SimpleSwitch13(app_manager.RyuApp):
     
     def distribute_flow_table(self, source, next_table, target, shortest_path):
         src_node_class = self.check_class(source)
-        dpid = self.config.json[src_node_class][source]["datapath"]["dpid"]
+        dpid = self.config.json[src_node_class][source]["datapath"]["dpid_d"]
         dst_node_class = self.check_class(target)
         dst_ip = self.config.json[dst_node_class][target]["host"]["ip_addr"]
 

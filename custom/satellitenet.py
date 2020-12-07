@@ -23,21 +23,21 @@ class SingleSwitchTopo(Topo):
 
         json = self.config.json
         self._bw = json["bandwith"]
-        group1_switch = self.addSwitch('s1', datapath='user')
-        group2_switch = self.addSwitch('s2', datapath='user')
-        group3_switch = self.addSwitch('s3', datapath='user')
+        group1_switch = self.addSwitch('s1', datapath='user',dpid=json['sat']['group1']['datapath']['dpid'])
+        group2_switch = self.addSwitch('s2', datapath='user',dpid=json['sat']['group2']['datapath']['dpid'])
+        group3_switch = self.addSwitch('s3', datapath='user',dpid=json['sat']['group3']['datapath']['dpid'])
         group1_host = self.addHost('h1', cpu=.8/7, mac= json['sat']['group1']['host']['eth0'], ip=json['sat']['group1']['host']['ip_addr'])
         group2_host = self.addHost('h2', cpu=.8/7, mac= json['sat']['group2']['host']['eth0'], ip=json['sat']['group2']['host']['ip_addr'])
         group3_host = self.addHost('h3', cpu=.8/7, mac= json['sat']['group3']['host']['eth0'], ip=json['sat']['group3']['host']['ip_addr'])
 
-        sr1_switch = self.addSwitch('s4', datapath='user')
-        sr2_switch = self.addSwitch('s5', datapath='user')
-        sr3_switch = self.addSwitch('s6', datapath='user')
+        sr1_switch = self.addSwitch('s4', datapath='user',dpid=json['sat']['sr1']['datapath']['dpid'])
+        sr2_switch = self.addSwitch('s5', datapath='user',dpid=json['sat']['sr2']['datapath']['dpid'])
+        sr3_switch = self.addSwitch('s6', datapath='user',dpid=json['sat']['sr3']['datapath']['dpid'])
         sr1_host = self.addHost('h4', cpu=.8/7, mac= json['sat']['sr1']['host']['eth0'], ip=json['sat']['sr1']['host']['ip_addr'])
         sr2_host = self.addHost('h5', cpu=.8/7, mac= json['sat']['sr2']['host']['eth0'], ip=json['sat']['sr2']['host']['ip_addr'])
         sr3_host = self.addHost('h6', cpu=.8/7, mac= json['sat']['sr3']['host']['eth0'], ip=json['sat']['sr3']['host']['ip_addr'])
 
-        dc1_switch = self.addSwitch('s7', datapath='user')
+        dc1_switch = self.addSwitch('s7', datapath='user',dpid=json['dc']['dc1']['datapath']['dpid'])
         dc1_host = self.addHost('h7', cpu=.8/7, mac= json['dc']['dc1']['host']['eth0'], ip=json['dc']['dc1']['host']['ip_addr'])
 
         self.addLink(group1_host, group1_switch,port1=1, port2=json['link_port_num']['group1_to_host'], bw=self._bw)
@@ -68,7 +68,7 @@ def perfTest(config):
     "Create network and run simple performance test"
     topo = SingleSwitchTopo(config)
     # net = Mininet(topo=topo,host=CPULimitedHost, link=TCULink, controller=RemoteController(name='controller',ip='127.0.0.1',port=6633))
-    net = Mininet(topo=topo,host=CPULimitedHost, link=TCULink, controller=RemoteController(name='controller',ip='127.0.0.1',port=6633))
+    net = Mininet(topo=topo,host=CPULimitedHost, link=TCULink, controller=RemoteController(name='controller',ip='127.0.0.1',port=6653))
     net.start()
     # print "Dumping host connections"
     # dumpNodeConnections(net.hosts)
@@ -84,6 +84,6 @@ def perfTest(config):
  
 if __name__=='__main__':
     setLogLevel('info')
-    config_path_ = '/home/ubuntu/ryu/ryu/app/dsSatellite/Config/config.json'
+    config_path_ = '/home/ubuntu/ryu/ryu/app/dsSatellite/Config/dsconfig.json'
     config  = Config.Config(config_path_)
     perfTest(config)
