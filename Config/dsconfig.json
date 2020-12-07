@@ -1,0 +1,145 @@
+{
+    "stk_path": "/home/ubuntu/ryu/ryu/app/dsSatellite/sat",
+    "enable_show_topo": true,
+
+    "enable_monitor": false,
+    "monitor_switch": ["group1", "sr1"],
+
+    "meter":true,
+
+    "bandwith" : 50,
+
+    "sat":{
+        "group1":{
+            "host":{
+                "ip_addr": "10.0.0.1",
+                "eth0":"00:00:00:00:00:01"
+            },
+    
+            "datapath": {
+                "dpid": "0x1c4804f8f8762c41",
+                "dpid_d":"2037884298752044097"
+            } 
+        },
+    
+        "group2":{
+            "host":{
+                "ip_addr": "10.0.0.2",
+                "eth0":"00:00:00:00:00:02"
+            },
+    
+            "datapath": {
+                "dpid": "0x1c4804f8f8765bc1",
+                "dpid_d":"2037884298752056257"
+            } 
+        },
+    
+        "group3":{
+            "host":{
+                "ip_addr": "10.0.0.3",
+                "eth0":"00:00:00:00:00:03"
+            },
+    
+            "datapath": {
+                "dpid": "0x5e3e486e73000502",
+                "dpid_d":"6790944927334270210"
+            } 
+        },
+    
+        "sr1":{
+            "host":{
+                "ip_addr": "10.0.0.4",
+                "eth0":"00:00:00:00:00:04"
+            },
+    
+            "datapath": {
+                "dpid": "0x1c4804f8f8765cc1",
+                "dpid_d":"2037884298752056513"
+            } 
+        },
+    
+        "sr2":{
+            "host":{
+                "ip_addr": "10.0.0.5",
+                "eth0":"00:00:00:00:00:05"
+            },
+    
+            "datapath": {
+                "dpid": "0x1c4804f8f8764241",
+                "dpid_d":"2037884298752049729"
+            } 
+        },
+    
+        "sr3":{
+            "host":{
+                "ip_addr": "10.0.0.6",
+                "eth0":"00:00:00:00:00:06"
+            },
+    
+            "datapath": {
+                "dpid": "0x1c4804f8f87636c1",
+                "dpid_d":"2037884298752046785"
+            } 
+        }
+    },
+
+    "dc":{
+        "dc1":{
+            "host":{
+                "ip_addr": "192.168.1.177",
+                "eth0":"00:00:00:00:00:07"
+            },
+    
+            "datapath": {
+                "dpid": 7
+            }
+        } 
+    },
+
+    "link_port_num":{
+        "group1_to_sr1": 1,
+        "group1_to_sr2": 2,
+        "group1_to_sr3": 3,
+        "group1_to_host": 4,
+
+        "group2_to_sr1": 1,
+        "group2_to_sr2": 2,
+        "group2_to_sr3": 3,
+        "group2_to_host": 4,
+
+        "group3_to_sr1": 1,
+        "group3_to_sr2": 2,
+        "group3_to_sr3": 3,
+        "group3_to_host": 4,
+
+        "sr1_to_group1": 1,
+        "sr1_to_group2": 2,
+        "sr1_to_group3": 3,
+        "sr1_to_sr2": 4,
+        "sr1_to_sr3": 5,
+        "sr1_to_host": 6,
+        "sr1_to_dc1": 7,
+
+        "sr2_to_group1": 1,
+        "sr2_to_group2": 2,
+        "sr2_to_group3": 3,
+        "sr2_to_sr1": 4,
+        "sr2_to_sr3": 5,
+        "sr2_to_host": 6,
+        "sr2_to_dc1": 7,
+
+        "sr3_to_group1": 1,
+        "sr3_to_group2": 2,
+        "sr3_to_group3": 3,
+        "sr3_to_sr1": 5,
+        "sr3_to_sr2": 4,
+        "sr3_to_host": 6,
+        "sr3_to_dc1": 7,
+
+        "dc1_to_sr1": 1,
+        "dc1_to_sr2": 2,
+        "dc1_to_sr3": 3,
+        "dc1_to_host": 4
+    }
+
+}

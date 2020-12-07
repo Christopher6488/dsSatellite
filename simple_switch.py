@@ -204,7 +204,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.logger.info("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.logger.info("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.logger.info("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        while len(self.datapaths) == 7:
+        while len(self.datapaths) == 6:
             if current_time != self.last_time:
                 self.current_topo = self.time_expand_topo.slice_topo(current_time)
                 self.logger.info("Start Update!")
