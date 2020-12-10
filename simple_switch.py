@@ -174,6 +174,8 @@ class SimpleSwitch13(app_manager.RyuApp):
                 self.logger.debug('register datapath: %016d', datapath.id)
                 self.datapaths[datapath.id] = datapath
 
+                #clear all old flow tables
+                self.clear_all_flow_tables(datapath)
                 # install to host flow entry
                 self.install_to_host_flow_entry(datapath)
                 # install table-miss flow entry
@@ -230,6 +232,18 @@ class SimpleSwitch13(app_manager.RyuApp):
                 self.last_time = current_time
             self.next_table = (3 - pow(-1, self.next_table)) / 2
             hub.sleep(1000000)
+    
+    def clear_all_flow_tables(self,datapath):
+        self.logger.info("clear_all_flow_tables called!")
+        ofp = datapath.ofproto
+        ofp_parser = datapath.ofproto_parser
+        match = ofp_parser.OFPMatch(eth_type=ether.ETH_TYPE_IP)
+        for i in range(3):
+            req = ofp_parser.OFPFlowMod(datapath, table_id=i, command=ofp.OFPFC_DELETE,
+                                                                            match=match,cookie=0, cookie_mask=0,  buffer_id = ofp.OFP_NO_BUFFER,
+                                                                            idle_timeout=0, hard_timeout=0,flags=0, out_port=ofp.OFPP_ANY,  
+                                                                            out_group=ofp.OFPG_ANY, instructions=[])
+            datapath.send_msg(req)
 
     def install_init_meter_table(self):
         for dp in self.datapaths.values():
