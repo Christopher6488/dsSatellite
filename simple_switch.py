@@ -176,6 +176,8 @@ class SimpleSwitch13(app_manager.RyuApp):
 
                 #clear all old flow tables
                 self.clear_all_flow_tables(datapath)
+                #clear all meter tables
+                self.clear_all_meter_tables(datapath)
                 # install to host flow entry
                 self.install_to_host_flow_entry(datapath)
                 # install table-miss flow entry
@@ -220,7 +222,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.logger.info("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.logger.info("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.logger.info("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        while len(self.datapaths) == 8:
+        while len(self.datapaths) == 6:
             if current_time != self.last_time:
                 self.current_topo = self.time_expand_topo.slice_topo(current_time)
                 self.logger.info("Start Update!")
@@ -237,13 +239,21 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.logger.info("clear_all_flow_tables called!")
         ofp = datapath.ofproto
         ofp_parser = datapath.ofproto_parser
-        match = ofp_parser.OFPMatch(eth_type=ether.ETH_TYPE_IP)
+        match = ofp_parser.OFPMatch()
         for i in range(3):
             req = ofp_parser.OFPFlowMod(datapath, table_id=i, command=ofp.OFPFC_DELETE,
                                                                             match=match,cookie=0, cookie_mask=0,  buffer_id = ofp.OFP_NO_BUFFER,
                                                                             idle_timeout=0, hard_timeout=0,flags=0, out_port=ofp.OFPP_ANY,  
                                                                             out_group=ofp.OFPG_ANY, instructions=[])
             datapath.send_msg(req)
+    
+    def clear_all_meter_tables(self,dp):
+        self.logger.info("clear_all_meter_tables called!")
+        ofproto = dp.ofproto
+        parser = dp.ofproto_parser
+        for i in range(11):
+            meter_mod = parser.OFPMeterMod(datapath=dp, command=ofproto.OFPMC_DELETE, flags=ofproto.OFPMF_KBPS, meter_id=i, bands=[parser.OFPMeterBandDrop(rate=10000, burst_size=0)])
+            dp.send_msg(meter_mod)
 
     def install_init_meter_table(self):
         for dp in self.datapaths.values():

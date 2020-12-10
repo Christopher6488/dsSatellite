@@ -13,3 +13,4 @@ Config/*.pyc
 modules/web/utils
 *.swp
 *.db
+*.pyc
