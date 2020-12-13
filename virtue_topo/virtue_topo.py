@@ -103,5 +103,5 @@ def main():
     print('totally cost',time_end-time_start)
     show_topo(topo)
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()
