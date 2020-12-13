@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import datetime as dt
+import time
 from operator import attrgetter
 
 import matplotlib.pyplot as plt
@@ -41,12 +42,14 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.current_topo = nx.Graph()
         self.time_expand_topo = virtue_topo.create_virtue_topo(self.config)
         self.topo_thread = hub.spawn(self._create_topo)
+        self.time_thread = hub.spawn(self._time_simulator)
         self.all_pairs_shortest_paths = {}
         self.next_table = 1
         
         self.datapaths = {}
         self.lastCount = {}
         self.timeStamp=0
+        self.update_time = self.config.json["update_time"]
 
         if(self.config.json["enable_monitor"]):
             self.monitor_thread = hub.spawn(self._monitor)
@@ -74,7 +77,8 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.monitor_dpid = [ self.config.json['sat'][node_name]['datapath']['dpid'] if self.check_class(node_name)=='sat' 
                                                     else self.config.json['dc'][node_name]['datapath']['dpid'] for node_name in self.config.json["monitor_switch"]]
         
-        self.last_time = dt.datetime(year=2020,month=8,day=18,hour=dt.datetime.now().hour,minute=dt.datetime.now().minute)
+        self.current_time = dt.datetime(year=2020, month=8, day=18, hour=4, minute=40)
+        self.last_time = self.current_time
         self.sleepTime = 1.0
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -202,6 +206,15 @@ class SimpleSwitch13(app_manager.RyuApp):
             for dp in self.datapaths.values():
                 self._request_stats(dp)
             hub.sleep(self.sleepTime)
+
+    def _time_simulator(self):
+        hub.sleep(30)
+        current_time = time.mktime(dt.datetime.now().timetuple())
+        while True:
+            if time.mktime(dt.datetime.now().timetuple()) - current_time > self.config.json["minutes_interval"]:
+                current_time = time.mktime(dt.datetime.now().timetuple()) 
+                self.current_time += dt.timedelta(minutes=1)
+            hub.sleep(0.5)
     
     def _show_topo(self):
         plt.ion()
@@ -213,7 +226,6 @@ class SimpleSwitch13(app_manager.RyuApp):
         
     def _create_topo(self):
         hub.sleep(30)
-        current_time = dt.datetime(year=2020, month=8, day=18, hour=4, minute=26)
         self.logger.info("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.logger.info("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.logger.info("The number of datapaths is: %d", len(self.datapaths))
@@ -222,18 +234,19 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.logger.info("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.logger.info("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.logger.info("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        while len(self.datapaths) == 6:
-            if current_time != self.last_time:
-                self.current_topo = self.time_expand_topo.slice_topo(current_time)
-                self.logger.info("Start Update!")
-                self.update_meter_table()
-                self.update_flow_table()
-                self.update_pointer_table()
-                self.clear_old_flow_table()
+        while len(self.datapaths) == 7:
+            self.logger.info(self.current_time)
+            self.logger.info("Start Update!")
+            self.current_topo = self.time_expand_topo.slice_topo(self.current_time)
+            self.update_meter_table()
+            self.update_flow_table()
+            self.transfer()
+            self.update_pointer_table()
+            self.clear_old_flow_table()
 
-                self.last_time = current_time
+            self.last_time = self.current_time
             self.next_table = (3 - pow(-1, self.next_table)) / 2
-            hub.sleep(1000000)
+            hub.sleep(self.update_time)
     
     def clear_all_flow_tables(self,datapath):
         self.logger.info("clear_all_flow_tables called!")
@@ -281,7 +294,24 @@ class SimpleSwitch13(app_manager.RyuApp):
                 
                 u_dp.send_msg(u_meter_mod)
                 v_dp.send_msg(v_meter_mod)
-                
+
+    def transfer(self):
+        if speed_rec['sr1']['sr3'] > self.config.json["transfer_threshold"]:
+            dpid = self.config.json['sat']['sr1']["datapath"]["dpid_d"]
+            dp = self.datapaths[dpid]
+            parser = dp.ofproto_parser
+
+            src_ip = self.config.json['sat']['group1']['host']['ip_addr']
+            dst_ip = self.config.json['dc']['dc1']['host']['ip_addr']
+            match = parser.OFPMatch(eth_type=ether.ETH_TYPE_IP, ipv4_src=src_ip,ipv4_dst=dst_ip)
+            
+            out_port_num = self.config.json["link_port_num"]["sr1"+"_to_"+"sr2"]
+            meter = parser.OFPInstructionMeter(meter_id=out_port_num)
+            actions = parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                                    [parser.OFPActionOutput(out_port_num)])
+            inst = [meter,actions] if self.config.json["meter"] else [actions]
+            self.add_flow(dp, table_id=self.next_table, priority=2, match=match,  inst=inst)
+
     def calculate_vel(self, weight):
         #TODO
 
@@ -289,6 +319,7 @@ class SimpleSwitch13(app_manager.RyuApp):
 
     def update_flow_table(self):
         self.all_pairs_shortest_paths = nx.shortest_path(self.current_topo, weight = 'weight')
+        print(self.all_pairs_shortest_paths)
         for source in nx.shortest_path(self.current_topo, weight = 'weight'):
             targets_paths = self.all_pairs_shortest_paths[source]
             for target in targets_paths:

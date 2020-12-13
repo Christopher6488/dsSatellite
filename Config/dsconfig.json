@@ -6,8 +6,12 @@
     "monitor_switch": ["group1", "sr1"],
 
     "meter":true,
-
     "bandwith" : 50,
+
+    "update_time": 5,
+    "minutes_interval":10,
+
+    "transfer_threshold": 500,
 
     "sat":{
         "group1":{
