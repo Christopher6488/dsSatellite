@@ -9,6 +9,8 @@
 
     "bandwith" : 50,
 
+    "sleep_time": 1,
+
     "sat":{
         "group1":{
             "host":{

@@ -27,7 +27,11 @@ from ryu.ofproto import ether, ofproto_v1_3
 
 from Config import Config
 from virtue_topo import virtue_topo
-
+from utils.utils import check_class
+from utils.packetout import add_flow, clear_all_flow_tables, clear_all_meter_tables, send_packet
+from monitor import Monitor
+from Algorithm.ShortestPath import ShortestPath
+from utils.packetout import request_stats
 
 class SimpleSwitch13(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -39,17 +43,18 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.config = Config.Config(self.config_path)
 
         self.current_topo = nx.Graph()
+        self.monitor = Monitor(self.config)
+
+        self.algorithm = ShortestPath(self.config, monitor)
         self.time_expand_topo = virtue_topo.create_virtue_topo(self.config)
         self.topo_thread = hub.spawn(self._create_topo)
         self.all_pairs_shortest_paths = {}
-        self.next_table = 1
+        self.monitor.next_table = 1
         
-        self.datapaths = {}
-        self.lastCount = {}
         self.timeStamp=0
 
         if(self.config.json["enable_monitor"]):
-            self.monitor_thread = hub.spawn(self._monitor)
+            self.monitor_thread = hub.spawn(monitor.logger())
 
         if(self.config.json["enable_show_topo"]):
             self.show_topo_thread = hub.spawn(self._show_topo)
@@ -71,8 +76,6 @@ class SimpleSwitch13(app_manager.RyuApp):
                                             self.config.json['sat']['sr3']['datapath']['dpid_d']: 'sr3',
                                             self.config.json['dc']['dc1']['datapath']['dpid_d']: 'dc1'}
         
-        self.monitor_dpid = [ self.config.json['sat'][node_name]['datapath']['dpid'] if self.check_class(node_name)=='sat' 
-                                                    else self.config.json['dc'][node_name]['datapath']['dpid'] for node_name in self.config.json["monitor_switch"]]
         
         self.last_time = dt.datetime(year=2020,month=8,day=18,hour=dt.datetime.now().hour,minute=dt.datetime.now().minute)
         self.sleepTime = 1.0
@@ -82,14 +85,6 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.logger.info("switch_features_handler called!")
         dp = ev.msg.datapath
         self.logger.info("datapath id is %016d", dp.id)
-        # # install to host flow entry
-        # self.install_to_host_flow_entry(dp)
-        # # install table-miss flow entry
-        # self.install_table_miss_flow_entry(dp)
-        # # install pointer table
-        # self.install_pointer_table(dp)
-        # # install meter table
-        # self.install_meter_table(dp)
     
     def install_meter_table(self, dp):
         self.logger.info("install_meter_table_called!")
@@ -105,14 +100,14 @@ class SimpleSwitch13(app_manager.RyuApp):
         ofproto = dp.ofproto
         parser = dp.ofproto_parser
         host = self.dpid_table[dp.id]
-        node_class = self.check_class(host)
+        node_class = check_class(host)
         
         match = parser.OFPMatch(eth_type=ether.ETH_TYPE_IP, ipv4_dst=self.config.json[node_class][host]['host']['ip_addr'])
         out_port_num = self.config.json['link_port_num'][host+'_to_host']
         actions = parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
                                                                                         [parser.OFPActionOutput(port=out_port_num)])
         inst = [actions]
-        self.add_flow(dp, table_id=0, priority=1, match=match, inst=inst)
+        add_flow(dp, table_id=0, priority=1, match=match, inst=inst)
 
     def install_pointer_table(self, dp):
         self.logger.info("install_pointer_table_called!")
@@ -121,7 +116,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         match = parser.OFPMatch()
         actions = parser.OFPInstructionGotoTable(self.next_table)
         inst =  [actions]
-        self.add_flow(dp, table_id=0, priority=0, match=match, inst=inst)
+        add_flow(dp, table_id=0, priority=0, match=match, inst=inst)
     
     def install_table_miss_flow_entry(self, dp):
         self.logger.info("install_table_miss_flow_entry called!")
@@ -132,8 +127,8 @@ class SimpleSwitch13(app_manager.RyuApp):
                                                                                         [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER, 
                                                                                         ofproto.OFPCML_NO_BUFFER)])
         inst = [actions]
-        self.add_flow(dp, table_id=1,  priority=0, match=match, inst=inst)
-        self.add_flow(dp, table_id=2,  priority=0, match=match, inst=inst)
+        add_flow(dp, table_id=1,  priority=0, match=match, inst=inst)
+        add_flow(dp, table_id=2,  priority=0, match=match, inst=inst)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -172,12 +167,12 @@ class SimpleSwitch13(app_manager.RyuApp):
         if ev.state == MAIN_DISPATCHER:
             if datapath.id not in self.datapaths:
                 self.logger.debug('register datapath: %016d', datapath.id)
-                self.datapaths[datapath.id] = datapath
+                self.monitor.datapaths[datapath.id] = datapath
 
                 #clear all old flow tables
-                self.clear_all_flow_tables(datapath)
+                clear_all_flow_tables(datapath)
                 #clear all meter tables
-                self.clear_all_meter_tables(datapath)
+                clear_all_meter_tables(datapath)
                 # install to host flow entry
                 self.install_to_host_flow_entry(datapath)
                 # install table-miss flow entry
@@ -190,7 +185,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         elif ev.state == DEAD_DISPATCHER:
             if datapath.id in self.datapaths:
                 self.logger.debug('unregister datapath: %016d', datapath.id)
-                del self.datapaths[datapath.id]
+                del self.monitor.datapaths[datapath.id]
 
     def handle_ip(self, dp, msg):
         self.logger.info("handle_ip called!")
@@ -200,8 +195,8 @@ class SimpleSwitch13(app_manager.RyuApp):
         hub.sleep(10)
         while True:
             for dp in self.datapaths.values():
-                self._request_stats(dp)
-            hub.sleep(self.sleepTime)
+                request_stats(dp)
+            hub.sleep(self.config.json['sleep_time'])
     
     def _show_topo(self):
         plt.ion()
@@ -226,34 +221,15 @@ class SimpleSwitch13(app_manager.RyuApp):
             if current_time != self.last_time:
                 self.current_topo = self.time_expand_topo.slice_topo(current_time)
                 self.logger.info("Start Update!")
-                self.update_meter_table()
-                self.update_flow_table()
-                self.update_pointer_table()
-                self.clear_old_flow_table()
+                self.algorithm.update_meter_table()
+                self.algorithm.update_flow_table()
+                self.algorithm.update_pointer_table()
+                self.algorithm.clear_old_flow_table()
 
                 self.last_time = current_time
-            self.next_table = (3 - pow(-1, self.next_table)) / 2
+            self.monitor.next_table = (3 - pow(-1, self.next_table)) / 2
             hub.sleep(1000000)
     
-    def clear_all_flow_tables(self,datapath):
-        self.logger.info("clear_all_flow_tables called!")
-        ofp = datapath.ofproto
-        ofp_parser = datapath.ofproto_parser
-        match = ofp_parser.OFPMatch()
-        for i in range(3):
-            req = ofp_parser.OFPFlowMod(datapath, table_id=i, command=ofp.OFPFC_DELETE,
-                                                                            match=match,cookie=0, cookie_mask=0,  buffer_id = ofp.OFP_NO_BUFFER,
-                                                                            idle_timeout=0, hard_timeout=0,flags=0, out_port=ofp.OFPP_ANY,  
-                                                                            out_group=ofp.OFPG_ANY, instructions=[])
-            datapath.send_msg(req)
-    
-    def clear_all_meter_tables(self,dp):
-        self.logger.info("clear_all_meter_tables called!")
-        ofproto = dp.ofproto
-        parser = dp.ofproto_parser
-        for i in range(11):
-            meter_mod = parser.OFPMeterMod(datapath=dp, command=ofproto.OFPMC_DELETE, flags=ofproto.OFPMF_KBPS, meter_id=i, bands=[parser.OFPMeterBandDrop(rate=10000, burst_size=0)])
-            dp.send_msg(meter_mod)
 
     def install_init_meter_table(self):
         for dp in self.datapaths.values():
@@ -263,164 +239,10 @@ class SimpleSwitch13(app_manager.RyuApp):
             meter_mod = parser.OFPMeterMod(datapath=dp, command=ofproto.OFPMC_ADD, flags=ofproto.OFPMF_KBPS, meter_id=1, bands=[parser.OFPMeterBandDrop(rate=10000, burst_size=0)])
             dp.send_msg(meter_mod)
 
-    def update_meter_table(self):
-        for u, v, weight in self.current_topo.edges.data("weight"):
-            if weight is not None:
-                vel = self.calculate_vel(weight)
-
-                u_class, v_class = self.check_class(u), self.check_class(v)
-                u_dpid, v_dpid = self.config.json[u_class][u]["datapath"]["dpid_d"], self.config.json[v_class][v]["datapath"]["dpid_d"]
-                u_to_v_port_num, v_to_u_port_num = self.config.json["link_port_num"][u+"_to_"+v], self.config.json["link_port_num"][v+"_to_"+u]
-               
-                u_dp, v_dp = self.datapaths[u_dpid], self.datapaths[v_dpid]
-                u_parser, v_parser = u_dp.ofproto_parser, v_dp.ofproto_parser
-                u_ofproto, v_ofproto = u_dp.ofproto, v_dp.ofproto
-
-                u_meter_mod = u_parser.OFPMeterMod(u_dp, command=u_ofproto.OFPMC_MODIFY, flags=u_ofproto.OFPMF_KBPS, meter_id=u_to_v_port_num, bands=[u_parser.OFPMeterBandDrop(rate=vel,burst_size=0)])
-                v_meter_mod = v_parser.OFPMeterMod(v_dp, command=v_ofproto.OFPMC_MODIFY, flags=v_ofproto.OFPMF_KBPS, meter_id=v_to_u_port_num, bands=[v_parser.OFPMeterBandDrop(rate=vel,burst_size=0)])
-                
-                u_dp.send_msg(u_meter_mod)
-                v_dp.send_msg(v_meter_mod)
-                
-    def calculate_vel(self, weight):
-        #TODO
-
-        return 10000
-
-    def update_flow_table(self):
-        self.all_pairs_shortest_paths = nx.shortest_path(self.current_topo, weight = 'weight')
-        for source in nx.shortest_path(self.current_topo, weight = 'weight'):
-            targets_paths = self.all_pairs_shortest_paths[source]
-            for target in targets_paths:
-                shortest_path = targets_paths[target]
-                if len(shortest_path) > 1:
-                    self.distribute_flow_table(source, self.next_table, target, shortest_path)
-    
-    def update_pointer_table(self):
-        for datapath in self.datapaths.values():
-            ofp = datapath.ofproto
-            ofp_parser = datapath.ofproto_parser
-            match = ofp_parser.OFPMatch()
-            self.logger.info("Point to table:   %x", self.next_table)
-            actions = ofp_parser.OFPInstructionGotoTable(self.next_table)
-            inst = [actions]
-            req = ofp_parser.OFPFlowMod(datapath, table_id=0, command=ofp.OFPFC_MODIFY_STRICT,
-                                                                            match=match,cookie=0, cookie_mask=0,  buffer_id = ofp.OFP_NO_BUFFER,
-                                                                            idle_timeout=0, hard_timeout=0,flags=0, out_port=ofp.OFPP_ANY,  priority=0,
-                                                                            out_group=ofp.OFPG_ANY, instructions=inst)
-            
-            datapath.send_msg(req)
-
-    def clear_old_flow_table(self):
-        last_table = (3 - pow(-1, self.next_table)) / 2
-        for datapath in self.datapaths.values():
-            ofp = datapath.ofproto
-            ofp_parser = datapath.ofproto_parser
-            match = ofp_parser.OFPMatch(eth_type=ether.ETH_TYPE_IP)
-            req = ofp_parser.OFPFlowMod(datapath, table_id=last_table, command=ofp.OFPFC_DELETE,
-                                                                            match=match,cookie=0, cookie_mask=0,  buffer_id = ofp.OFP_NO_BUFFER,
-                                                                            idle_timeout=0, hard_timeout=0,flags=0, out_port=ofp.OFPP_ANY,  
-                                                                            out_group=ofp.OFPG_ANY, instructions=[])
-            
-            datapath.send_msg(req)
-
-    
-    def distribute_flow_table(self, source, next_table, target, shortest_path):
-        src_node_class = self.check_class(source)
-        dpid = self.config.json[src_node_class][source]["datapath"]["dpid_d"]
-        dst_node_class = self.check_class(target)
-        dst_ip = self.config.json[dst_node_class][target]["host"]["ip_addr"]
-
-        dp = self.datapaths[dpid]
-        ofp = dp.ofproto
-        parser = dp.ofproto_parser
-
-        next_hop = shortest_path[1]
-        out_port_num = self.config.json["link_port_num"][source+"_to_"+next_hop]
-
-        match = parser.OFPMatch(eth_type=ether.ETH_TYPE_IP, ipv4_dst=dst_ip)
-        meter = parser.OFPInstructionMeter(meter_id=out_port_num)
-        actions = parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-                                                  [parser.OFPActionOutput(out_port_num)])
-        
-        inst = [meter,actions] if self.config.json["meter"] else [actions]
-        self.add_flow(dp, table_id=next_table, priority=1, match=match,  inst=inst)
-    
-    def check_class(self, target):
-        if 'sr' in target:
-            return 'sat'
-        if 'group' in target:
-            return 'sat'
-        if 'dc' in target:
-            return 'dc'
-
-    def add_flow(self, datapath, table_id,priority, match, inst, buffer_id=None):
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-        cookie = cookiemask = 0
-        idle_timeout = hard_timeout = 0
-
-        if buffer_id:
-            mod = parser.OFPFlowMod(datapath=datapath, table_id = table_id, command = ofproto.OFPFC_ADD ,
-                                                                    buffer_id=buffer_id, priority=priority, match=match, instructions=inst)
-        else:
-            mod = parser.OFPFlowMod(datapath=datapath, table_id = table_id, command = ofproto.OFPFC_ADD ,
-                                                                    priority=priority, match=match, instructions=inst)
-
-        # self.logger.info('Here are flows')
-        # self.logger.info(mod)
-        datapath.send_msg(mod)        
-
-    def _request_stats(self, datapath):
-        self.logger.debug('send stats request: %016x', datapath.id)
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-
-        req = parser.OFPPortStatsRequest(datapath, 0, ofproto.OFPP_ANY)
-        datapath.send_msg(req)
-
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
     def _port_stats_reply_handler(self, ev):
-        body = ev.msg.body
-        dp = ev.msg.datapath
-        dpid = dp.id
-        ofp_parser = dp.ofproto_parser
-        self.lastCount.setdefault(dpid, {})
+        self.monitor.logger(ev)
 
-        if dpid in self.monitor_dpid:
-            self.logger.info('datapath         port     '
-                            'rx-bytes rx-error '
-                            'tx-bytes tx-error speed(Mbits/s)')
-            self.logger.info('---------------- -------- '
-                            '-------- -------- '
-                            '-------- -------- -------')
-        for stat in sorted(body, key=attrgetter('port_no')):
-            if stat.port_no in self.lastCount[dpid]:
-                speed = ((stat.rx_bytes + stat.tx_bytes) - self.lastCount[dpid][stat.port_no]) * 8 / (
-                            self.sleepTime * 1000000)
-            else:
-                speed = (stat.rx_bytes + stat.tx_bytes) * 8 / (self.sleepTime * 1000000)
-
-            if dpid in self.monitor_dpid:
-                self.logger.info('%016x %8x %8d %8d %8d %8d %.2f',
-                                    dpid, stat.port_no,
-                                    stat.rx_bytes, stat.rx_errors,
-                                    stat.tx_bytes, stat.tx_errors, speed)
-            self.lastCount[dpid][stat.port_no] = stat.rx_bytes + stat.tx_bytes
-
-    # PacketOut used to send packet from controller to switch
-    def send_packet(self, dp, port, pkt):
-        ofproto = dp.ofproto
-        parser = dp.ofproto_parser
-        pkt.serialize()
-        data = pkt.data
-        action = [parser.OFPActionOutput(port=port)]
-
-        out = parser.OFPPacketOut(
-            datapath=dp, buffer_id=ofproto.OFP_NO_BUFFER,
-            in_port=ofproto.OFPP_CONTROLLER,
-            actions=action, data=data)
-        dp.send_msg(out)
 
     def handle_arp(self, dp, port, pkt):
         pkt_arp = pkt.get_protocol(arp.arp)
@@ -453,7 +275,7 @@ class SimpleSwitch13(app_manager.RyuApp):
             )
         )
 
-        self.logger.info('ARP REPLYED!')
+        print('ARP REPLYED!')
         self.send_packet(dp, port, pkt)
 
     # PacketOut used to send packet from controller to switch
