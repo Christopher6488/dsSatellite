@@ -79,7 +79,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.monitor_dpid = [ self.config.json['sat'][node_name]['datapath']['dpid_d'] if self.check_class(node_name)=='sat' 
                                                     else self.config.json['dc'][node_name]['datapath']['dpid_d'] for node_name in self.config.json["monitor_switch"]]
         
-        self.current_time = dt.datetime(year=2020, month=8, day=18, hour=4, minute=26)
+        self.current_time = dt.datetime(year=2020, month=8, day=18, hour=4, minute=40)
         self.last_time = self.current_time
         self.sleepTime = 1.0
 
@@ -88,14 +88,6 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.logger.debug("switch_features_handler called!")
         dp = ev.msg.datapath
         self.logger.debug("datapath id is %016d", dp.id)
-        # # install to host flow entry
-        # self.install_to_host_flow_entry(dp)
-        # # install table-miss flow entry
-        # self.install_table_miss_flow_entry(dp)
-        # # install pointer table
-        # self.install_pointer_table(dp)
-        # # install meter table
-        # self.install_meter_table(dp)
     
     def install_meter_table(self, dp):
         self.logger.debug("install_meter_table_called!")
@@ -242,13 +234,13 @@ class SimpleSwitch13(app_manager.RyuApp):
             self.current_topo = self.time_expand_topo.slice_topo(self.current_time)
             self.update_meter_table()
             self.update_flow_table()
-            # self.transfer()
+            self.transfer()
             self.update_pointer_table()
             self.clear_old_flow_table()
 
             self.last_time = self.current_time
             self.next_table = (3 - pow(-1, self.next_table)) / 2
-            hub.sleep(self.update_time)
+            hub.sleep(1)
     
     def clear_all_flow_tables(self,datapath):
         self.logger.debug("clear_all_flow_tables called!")
@@ -298,9 +290,17 @@ class SimpleSwitch13(app_manager.RyuApp):
                 v_dp.send_msg(v_meter_mod)
 
     def transfer(self):
-        if self.speed_rec['sr1'][self.config.json["link_port_num"]['sr1_to_sr2']] > self.config.json["transfer_threshold"]:
+        self.logger.info("TRANSFER CALLED")
+        print(self.speed_rec)
+        self.logger.info(self.speed_rec['sr1'][self.config.json["link_port_num"]['sr1_to_sr3']])
+        self.logger.info("NOT ENTER????????")
+        if self.speed_rec['sr1'][self.config.json["link_port_num"]['sr1_to_sr3']] > self.config.json["transfer_threshold"]:
+            self.logger.info("ENTER!!!!!!!!!!!!!!!")
+            self.logger.info(self.speed_rec['sr1'][self.config.json["link_port_num"]['sr1_to_sr2']] )
+            self.logger.info(self.speed_rec['sr1'][self.config.json["link_port_num"]['sr1_to_sr2']] )
             dpid = self.config.json['sat']['sr1']["datapath"]["dpid_d"]
             dp = self.datapaths[dpid]
+            ofp = dp.ofproto
             parser = dp.ofproto_parser
 
             src_ip = self.config.json['sat']['group3']['host']['ip_addr']
@@ -434,7 +434,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                             self.sleepTime * 1000000)
             else:
                 speed = (stat.rx_bytes + stat.tx_bytes) * 8 / (self.sleepTime * 1000000)
-    
+
             add_two_dim_dict(self.speed_rec,  self.dpid_table[dpid], stat.port_no, speed)
             if dpid in self.monitor_dpid:
                 self.logger.info('%016s %8x %8d %8d %8d %8d %.2f',

@@ -1,23 +1,23 @@
 {
-    "stk_path": "/home/ubuntu/ryu/ryu/app/dsSatellite/sat",
+    "stk_path": "/home/ubuntu/ryu/ryu/app/dsSatellite/sat_transfer",
     "enable_show_topo": true,
 
-    "enable_monitor": false,
+    "enable_monitor": true,
     "monitor_switch": ["group1", "sr1"],
-    "LOGGER_LEVEL": "INFO",
+    "LOGGER_LEVEL": "DEBUG",
 
     "meter":false,
-    "bandwith" : 10,
+    "bandwith" : 100,
 
-    "update_time": 6000,
+    "update_time": 5,
     "minutes_interval":6000,
 
-    "transfer_threshold": 500,
+    "transfer_threshold": 50,
 
     "sat":{
         "group1":{
             "host":{
-                "ip_addr": "10.0.0.1",
+                "ip_addr": "192.168.1.171",
                 "eth0":"00:00:00:00:00:01"
             },
     
@@ -29,7 +29,7 @@
     
         "group2":{
             "host":{
-                "ip_addr": "10.0.0.2",
+                "ip_addr": "192.168.1.172",
                 "eth0":"00:00:00:00:00:02"
             },
     
@@ -41,7 +41,7 @@
     
         "group3":{
             "host":{
-                "ip_addr": "10.0.0.3",
+                "ip_addr": "192.168.1.173",
                 "eth0":"00:00:00:00:00:03"
             },
     
@@ -53,7 +53,7 @@
     
         "sr1":{
             "host":{
-                "ip_addr": "10.0.0.4",
+                "ip_addr": "192.168.1.174",
                 "eth0":"00:00:00:00:00:04"
             },
     
@@ -65,7 +65,7 @@
     
         "sr2":{
             "host":{
-                "ip_addr": "10.0.0.5",
+                "ip_addr": "192.168.1.175",
                 "eth0":"00:00:00:00:00:05"
             },
     
@@ -77,7 +77,7 @@
     
         "sr3":{
             "host":{
-                "ip_addr": "10.0.0.6",
+                "ip_addr": "192.168.1.176",
                 "eth0":"00:00:00:00:00:06"
             },
     
