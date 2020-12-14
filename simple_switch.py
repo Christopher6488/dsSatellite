@@ -53,8 +53,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.speed_rec = {}
         self.update_time = self.config.json["update_time"]
 
-        if(self.config.json["enable_monitor"]):
-            self.monitor_thread = hub.spawn(self._monitor)
+        self.monitor_thread = hub.spawn(self._monitor)
 
         if(self.config.json["enable_show_topo"]):
             self.show_topo_thread = hub.spawn(self._show_topo)
@@ -290,12 +289,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                 v_dp.send_msg(v_meter_mod)
 
     def transfer(self):
-        self.logger.info("TRANSFER CALLED")
-        print(self.speed_rec)
-        self.logger.info(self.speed_rec['sr1'][self.config.json["link_port_num"]['sr1_to_sr3']])
-        self.logger.info("NOT ENTER????????")
         if self.speed_rec['sr1'][self.config.json["link_port_num"]['sr1_to_sr3']] > self.config.json["transfer_threshold"]:
-            self.logger.info("ENTER!!!!!!!!!!!!!!!")
             self.logger.info(self.speed_rec['sr1'][self.config.json["link_port_num"]['sr1_to_sr2']] )
             self.logger.info(self.speed_rec['sr1'][self.config.json["link_port_num"]['sr1_to_sr2']] )
             dpid = self.config.json['sat']['sr1']["datapath"]["dpid_d"]
@@ -317,11 +311,10 @@ class SimpleSwitch13(app_manager.RyuApp):
     def calculate_vel(self, weight):
         #TODO
 
-        return 10000
+        return 5000
 
     def update_flow_table(self):
         self.all_pairs_shortest_paths = nx.shortest_path(self.current_topo, weight = 'weight')
-        print(self.all_pairs_shortest_paths)
         for source in nx.shortest_path(self.current_topo, weight = 'weight'):
             targets_paths = self.all_pairs_shortest_paths[source]
             for target in targets_paths:
@@ -421,7 +414,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         ofp_parser = dp.ofproto_parser
         self.lastCount.setdefault(dpid, {})
 
-        if dpid in self.monitor_dpid:
+        if dpid in self.monitor_dpid and self.config.json["enable_monitor"]:
             self.logger.info('datapath         port     '
                             'rx-bytes rx-error '
                             'tx-bytes tx-error speed(Mbits/s)')
@@ -436,7 +429,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                 speed = (stat.rx_bytes + stat.tx_bytes) * 8 / (self.sleepTime * 1000000)
 
             add_two_dim_dict(self.speed_rec,  self.dpid_table[dpid], stat.port_no, speed)
-            if dpid in self.monitor_dpid:
+            if dpid in self.monitor_dpid and self.config.json["enable_monitor"]:
                 self.logger.info('%016s %8x %8d %8d %8d %8d %.2f',
                                     self.dpid_table[dpid], stat.port_no,
                                     stat.rx_bytes, stat.rx_errors,

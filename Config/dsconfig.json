@@ -2,11 +2,11 @@
     "stk_path": "/home/ubuntu/ryu/ryu/app/dsSatellite/sat_transfer",
     "enable_show_topo": true,
 
-    "enable_monitor": true,
-    "monitor_switch": ["group1", "sr1"],
+    "enable_monitor": false,
+    "monitor_switch": ["sr1"],
     "LOGGER_LEVEL": "DEBUG",
 
-    "meter":false,
+    "meter":true,
     "bandwith" : 100,
 
     "update_time": 5,
