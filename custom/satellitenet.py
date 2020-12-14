@@ -63,12 +63,16 @@ class SingleSwitchTopo(Topo):
         self.addLink(dc1_switch, sr1_switch, port1=json["link_port_num"]["dc1_to_sr1"], port2=json['link_port_num']['sr1_to_dc1'], bw=self._bw)
         self.addLink(dc1_switch, sr2_switch, port1=json["link_port_num"]["dc1_to_sr2"], port2=json['link_port_num']['sr2_to_dc1'], bw=self._bw)
         self.addLink(dc1_switch, sr3_switch, port1=json["link_port_num"]["dc1_to_sr3"], port2=json['link_port_num']['sr3_to_dc1'], bw=self._bw)
+
+        self.addLink(sr1_switch, sr2_switch, port1=json["link_port_num"]["sr1_to_sr2"], port2=json['link_port_num']['sr2_to_sr1'], bw=self._bw)
+        self.addLink(sr1_switch, sr3_switch, port1=json["link_port_num"]["sr1_to_sr3"], port2=json['link_port_num']['sr3_to_sr1'], bw=self._bw)
+        self.addLink(sr2_switch, sr3_switch, port1=json["link_port_num"]["sr2_to_sr3"], port2=json['link_port_num']['sr3_to_sr2'], bw=self._bw)
  
 def perfTest(config):
     "Create network and run simple performance test"
     topo = SingleSwitchTopo(config)
     # net = Mininet(topo=topo,host=CPULimitedHost, link=TCULink, controller=RemoteController(name='controller',ip='127.0.0.1',port=6633))
-    net = Mininet(topo=topo,host=CPULimitedHost, link=TCULink, controller=RemoteController(name='controller',ip='127.0.0.1',port=6633))
+    net = Mininet(topo=topo,host=CPULimitedHost, link=TCULink, controller=RemoteController(name='controller',ip='127.0.0.1',port=6653))
     net.start()
     # print "Dumping host connections"
     # dumpNodeConnections(net.hosts)
