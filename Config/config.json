@@ -2,7 +2,7 @@
     "stk_path": "/home/ubuntu/ryu/ryu/app/dsSatellite/sat",
     "enable_show_topo": true,
 
-    "enable_monitor": true,
+    "enable_monitor": false,
     "monitor_switch": ["group1", "sr1"],
     "LOGGER_LEVEL": "INFO",
 
