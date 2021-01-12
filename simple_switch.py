@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*- 
+
 # Copyright (C) 2011 Nippon Telegraph and Telephone Corporation.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -52,6 +54,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.timeStamp=0
         self.speed_rec = {}
         self.update_time = self.config.json["update_time"]
+        self.init_time = time.time()
 
         self.monitor_thread = hub.spawn(self._monitor)
 
@@ -169,6 +172,10 @@ class SimpleSwitch13(app_manager.RyuApp):
         if ev.state == MAIN_DISPATCHER:
             if datapath.id not in self.datapaths:
                 self.logger.info('register datapath: %016d', datapath.id)
+                self.logger.info("\033[0;36;40m %s 接入空间信息网络 \033[0m"%self.dpid_table[datapath.id]) 
+                current_time = time.mktime(dt.datetime.now().timetuple()) 
+                interval = current_time - self.init_time
+                self.logger.info("\033[0;36;40m 耗时%.15f 秒 \033[0m"%interval) 
                 self.datapaths[datapath.id] = datapath
 
                 #clear all old flow tables
@@ -290,6 +297,8 @@ class SimpleSwitch13(app_manager.RyuApp):
 
     def transfer(self):
         if self.speed_rec['sr1'][self.config.json["link_port_num"]['sr1_to_sr3']] > self.config.json["transfer_threshold"]:
+            time_corrupt = time.time()
+            self.logger.info("\033[0;36;40m %.15f 检测到突发任务 \033[0m"%time.time()) 
             self.logger.info(self.speed_rec['sr1'][self.config.json["link_port_num"]['sr1_to_sr2']] )
             self.logger.info(self.speed_rec['sr1'][self.config.json["link_port_num"]['sr1_to_sr2']] )
             dpid = self.config.json['sat']['sr1']["datapath"]["dpid_d"]
@@ -307,6 +316,11 @@ class SimpleSwitch13(app_manager.RyuApp):
                                                     [parser.OFPActionOutput(out_port_num)])
             inst = [meter,actions] if self.config.json["meter"] else [actions]
             self.add_flow(dp, table_id=self.next_table, priority=10, match=match,  inst=inst)
+            time_transfered = time.time()
+            time_interval = time_transfered-time_corrupt
+            self.logger.info("\033[0;36;40m %.15f 完成负载迁移 \033[0m"%time_transfered) 
+            self.logger.info("\033[0;36;40m 共耗时%.15f 秒\033[0m"%time_interval) 
+
 
     def calculate_vel(self, weight):
         #TODO

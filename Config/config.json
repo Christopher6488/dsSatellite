@@ -6,7 +6,7 @@
     "monitor_switch": ["group1", "sr1"],
     "LOGGER_LEVEL": "INFO",
 
-    "meter":true,
+    "meter":false,
 
     "bandwith" : 50,
 
