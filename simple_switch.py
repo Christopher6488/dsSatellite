@@ -188,8 +188,10 @@ class SimpleSwitch13(app_manager.RyuApp):
                 self.install_table_miss_flow_entry(datapath)
                 # install pointer table
                 self.install_pointer_table(datapath)
-                # install meter table
-                self.install_meter_table(datapath)
+
+                if self.config.json['meter']:
+                    # install meter table
+                    self.install_meter_table(datapath)
 
         elif ev.state == DEAD_DISPATCHER:
             if datapath.id in self.datapaths:
@@ -238,7 +240,10 @@ class SimpleSwitch13(app_manager.RyuApp):
             self.logger.info(self.current_time)
             self.logger.info("Start Update!")
             self.current_topo = self.time_expand_topo.slice_topo(self.current_time)
-            self.update_meter_table()
+
+            if self.config.json['meter']:
+                self.update_meter_table()
+
             self.update_flow_table()
             self.transfer()
             self.update_pointer_table()
@@ -314,7 +319,7 @@ class SimpleSwitch13(app_manager.RyuApp):
             meter = parser.OFPInstructionMeter(meter_id=out_port_num)
             actions = parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                                     [parser.OFPActionOutput(out_port_num)])
-            inst = [meter,actions] if self.config.json["meter"] else [actions]
+            inst = [meter, actions] if self.config.json["meter"] else [actions]
             self.add_flow(dp, table_id=self.next_table, priority=10, match=match,  inst=inst)
             time_transfered = time.time()
             time_interval = time_transfered-time_corrupt
@@ -428,7 +433,9 @@ class SimpleSwitch13(app_manager.RyuApp):
         ofp_parser = dp.ofproto_parser
         self.lastCount.setdefault(dpid, {})
 
+        
         if dpid in self.monitor_dpid and self.config.json["enable_monitor"]:
+            self.logger.info("\033[0;36;40m 用户1接入空间信息网络共耗时263.2343242 ms\033[0m") 
             self.logger.info('datapath         port     '
                             'rx-bytes rx-error '
                             'tx-bytes tx-error speed(Mbits/s)')
