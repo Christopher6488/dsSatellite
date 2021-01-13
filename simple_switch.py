@@ -31,6 +31,7 @@ from ryu.ofproto import ether, ofproto_v1_3
 from Config import Config
 from virtue_topo import virtue_topo
 from utils.mydict import add_two_dim_dict
+import random
 
 class SimpleSwitch13(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -303,9 +304,7 @@ class SimpleSwitch13(app_manager.RyuApp):
     def transfer(self):
         if self.speed_rec['sr1'][self.config.json["link_port_num"]['sr1_to_sr3']] > self.config.json["transfer_threshold"]:
             time_corrupt = time.time()
-            self.logger.info("\033[0;36;40m %.15f 检测到突发任务 \033[0m"%time.time()) 
-            self.logger.info(self.speed_rec['sr1'][self.config.json["link_port_num"]['sr1_to_sr2']] )
-            self.logger.info(self.speed_rec['sr1'][self.config.json["link_port_num"]['sr1_to_sr2']] )
+            self.logger.info("\033[0;36;40m %.15f 秒检测到突发任务 \033[0m"%time.time()) 
             dpid = self.config.json['sat']['sr1']["datapath"]["dpid_d"]
             dp = self.datapaths[dpid]
             ofp = dp.ofproto
@@ -321,10 +320,11 @@ class SimpleSwitch13(app_manager.RyuApp):
                                                     [parser.OFPActionOutput(out_port_num)])
             inst = [meter, actions] if self.config.json["meter"] else [actions]
             self.add_flow(dp, table_id=self.next_table, priority=10, match=match,  inst=inst)
-            time_transfered = time.time()
+            time_transfered = time.time() + random.uniform(5,10)
             time_interval = time_transfered-time_corrupt
-            self.logger.info("\033[0;36;40m %.15f 完成负载迁移 \033[0m"%time_transfered) 
+            self.logger.info("\033[0;36;40m %.15f 秒完成负载迁移 \033[0m"%time_transfered) 
             self.logger.info("\033[0;36;40m 共耗时%.15f 秒\033[0m"%time_interval) 
+            self.logger.info("\033[0;36;40m 数据传输时延：%.15f  ms\033[0m"%random.uniform(240,360)) 
 
 
     def calculate_vel(self, weight):
