@@ -23,21 +23,22 @@ class SingleSwitchTopo(Topo):
 
         json = self.config.json
         self._bw = json["bandwith"]
-        group1_switch = self.addSwitch('s1', dpid=json['sat']['group1']['datapath']['dpid'],datapath='user')
-        group2_switch = self.addSwitch('s2', dpid=json['sat']['group2']['datapath']['dpid'],datapath='user')
-        group3_switch = self.addSwitch('s3', dpid=json['sat']['group3']['datapath']['dpid'],datapath='user')
+
+        group1_switch = self.addSwitch('s1', dpid=json['sat']['group1']['datapath']['dpid'])
+        group2_switch = self.addSwitch('s2', dpid=json['sat']['group2']['datapath']['dpid'])
+        group3_switch = self.addSwitch('s3', dpid=json['sat']['group3']['datapath']['dpid'])
         group1_host = self.addHost('h1', cpu=.8/7, mac= json['sat']['group1']['host']['eth0'], ip=json['sat']['group1']['host']['ip_addr'])
         group2_host = self.addHost('h2', cpu=.8/7, mac= json['sat']['group2']['host']['eth0'], ip=json['sat']['group2']['host']['ip_addr'])
         group3_host = self.addHost('h3', cpu=.8/7, mac= json['sat']['group3']['host']['eth0'], ip=json['sat']['group3']['host']['ip_addr'])
 
-        sr1_switch = self.addSwitch('s4', dpid=json['sat']['sr1']['datapath']['dpid'],datapath='user')
-        sr2_switch = self.addSwitch('s5', dpid=json['sat']['sr2']['datapath']['dpid'],datapath='user')
-        sr3_switch = self.addSwitch('s6', dpid=json['sat']['sr3']['datapath']['dpid'],datapath='user')
+        sr1_switch = self.addSwitch('s4', dpid=json['sat']['sr1']['datapath']['dpid'])
+        sr2_switch = self.addSwitch('s5', dpid=json['sat']['sr2']['datapath']['dpid'])
+        sr3_switch = self.addSwitch('s6', dpid=json['sat']['sr3']['datapath']['dpid'])
         sr1_host = self.addHost('h4', cpu=.8/7, mac= json['sat']['sr1']['host']['eth0'], ip=json['sat']['sr1']['host']['ip_addr'])
         sr2_host = self.addHost('h5', cpu=.8/7, mac= json['sat']['sr2']['host']['eth0'], ip=json['sat']['sr2']['host']['ip_addr'])
         sr3_host = self.addHost('h6', cpu=.8/7, mac= json['sat']['sr3']['host']['eth0'], ip=json['sat']['sr3']['host']['ip_addr'])
 
-        dc1_switch = self.addSwitch('s7', dpid=json['dc']['dc1']['datapath']['dpid'],datapath='user')
+        dc1_switch = self.addSwitch('s7', dpid=json['dc']['dc1']['datapath']['dpid'])
         dc1_host = self.addHost('h7', cpu=.8/7, mac= json['dc']['dc1']['host']['eth0'], ip=json['dc']['dc1']['host']['ip_addr'])
 
         self.addLink(group1_host, group1_switch,port1=1, port2=json['link_port_num']['group1_to_host'], bw=self._bw)
