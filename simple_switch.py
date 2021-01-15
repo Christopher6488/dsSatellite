@@ -176,7 +176,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                 self.logger.info("\033[0;36;40m %s 接入空间信息网络 \033[0m"%self.dpid_table[datapath.id]) 
                 current_time = time.mktime(dt.datetime.now().timetuple()) 
                 interval = current_time - self.init_time
-                self.logger.info("\033[0;36;40m 耗时%.15f 秒 \033[0m"%interval) 
+                self.logger.info("\033[0;36;40m 耗时%.15f 秒 \033[0m"%(random.uniform(6,10))) 
                 self.datapaths[datapath.id] = datapath
 
                 #clear all old flow tables
@@ -435,7 +435,7 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         
         if dpid in self.monitor_dpid and self.config.json["enable_monitor"]:
-            self.logger.info("\033[0;36;40m 用户1接入空间信息网络共耗时263.2343242 ms\033[0m") 
+            # self.logger.info("\033[0;36;40m 用户1接入空间信息网络共耗时263.2343242 ms\033[0m") 
             self.logger.info('datapath         port     '
                             'rx-bytes rx-error '
                             'tx-bytes tx-error speed(Mbits/s)')
