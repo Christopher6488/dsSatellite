@@ -1,5 +1,5 @@
 {
-    "stk_path": "../sat_transfer",
+    "stk_path": "/home/ubuntu/ryu/ryu/app/dsSatellite/sat_transfer",
     "enable_show_topo": true,
 
     "enable_monitor": true,

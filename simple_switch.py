@@ -39,7 +39,7 @@ class SimpleSwitch13(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
 
-        self.config_path =  './Config/dsconfig.json'
+        self.config_path =  '/home/ubuntu/ryu/ryu/app/dsSatellite/Config/dsconfig.json'
         self.config = Config.Config(self.config_path)
 
         self.current_topo = nx.Graph()
@@ -173,7 +173,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         if ev.state == MAIN_DISPATCHER:
             if datapath.id not in self.datapaths:
                 self.logger.info('register datapath: %016d', datapath.id)
-                self.logger.info("\033[0;36;40m %s 接入空间信息网络 \033[0m"%self.dpid_table[datapath.id]) 
+                self.logger.info("\033[0;36;40m %s 常态业务接入空间信息网络 \033[0m"%self.dpid_table[datapath.id]) 
                 current_time = time.mktime(dt.datetime.now().timetuple()) 
                 interval = current_time - self.init_time
                 self.logger.info("\033[0;36;40m 耗时%.15f 秒 \033[0m"%(random.uniform(6,10))) 
