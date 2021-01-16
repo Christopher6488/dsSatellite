@@ -39,7 +39,7 @@ class SimpleSwitch13(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
 
-        self.config_path =  '/home/ubuntu/ryu/ryu/app/dsSatellite/Config/dsconfig.json'
+        self.config_path =  './Config/dsconfig.json'
         self.config = Config.Config(self.config_path)
 
         self.current_topo = nx.Graph()
