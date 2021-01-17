@@ -39,7 +39,7 @@ class SimpleSwitch13(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
 
-        self.config_path =  '/home/ubuntu/ryu/ryu/app/dsSatellite/Config/dsconfig.json'
+        self.config_path =  './Config/dsconfig.json'
         self.config = Config.Config(self.config_path)
 
         self.current_topo = nx.Graph()
@@ -204,7 +204,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         return
         
     def _monitor(self):
-        hub.sleep(10)
+        hub.sleep(1)
         while True:
             for dp in self.datapaths.values():
                 self._request_stats(dp)
@@ -228,7 +228,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         plt.show()
         
     def _create_topo(self):
-        hub.sleep(30)
+        hub.sleep(5)
         self.logger.debug("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.logger.debug("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.logger.debug("The number of datapaths is: %d", len(self.datapaths))
@@ -238,7 +238,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.logger.debug("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.logger.debug("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         while len(self.datapaths) == 7:
-            self.logger.info(self.current_time)
+            # self.logger.info(self.current_time)
             self.logger.info("Start Update!")
             self.current_topo = self.time_expand_topo.slice_topo(self.current_time)
 
