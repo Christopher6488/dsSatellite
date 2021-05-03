@@ -39,7 +39,7 @@ class SimpleSwitch13(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
 
-        self.config_path =  './Config/dsconfig.json'
+        self.config_path =  './Config/11node.json'
         self.config = Config.Config(self.config_path)
 
         self.current_topo = nx.Graph()
@@ -63,20 +63,30 @@ class SimpleSwitch13(app_manager.RyuApp):
             self.show_topo_thread = hub.spawn(self._show_topo)
 
 
-        self.arp_table = {self.config.json['sat']['group1']['host']['ip_addr']: self.config.json['sat']['group1']['host']['eth0'],
-                          self.config.json['sat']['group2']['host']['ip_addr']: self.config.json['sat']['group2']['host']['eth0'],
-                          self.config.json['sat']['group3']['host']['ip_addr']: self.config.json['sat']['group3']['host']['eth0'],
-                          self.config.json['sat']['sr1']['host']['ip_addr']: self.config.json['sat']['sr1']['host']['eth0'],
-                          self.config.json['sat']['sr2']['host']['ip_addr']: self.config.json['sat']['sr2']['host']['eth0'],
-                          self.config.json['sat']['sr3']['host']['ip_addr']: self.config.json['sat']['sr3']['host']['eth0'],
-                          self.config.json['dc']['dc1']['host']['ip_addr']: self.config.json['dc']['dc1']['host']['eth0']}
+        self.arp_table = {
+                        self.config.json['sat']['group1']['host']['ip_addr']: self.config.json['sat']['group1']['host']['eth0'],
+                        self.config.json['sat']['group2']['host']['ip_addr']: self.config.json['sat']['group2']['host']['eth0'],
+                        self.config.json['sat']['group3']['host']['ip_addr']: self.config.json['sat']['group3']['host']['eth0'],
+                        self.config.json['sat']['group4']['host']['ip_addr']: self.config.json['sat']['group4']['host']['eth0'],
+                        self.config.json['sat']['group5']['host']['ip_addr']: self.config.json['sat']['group5']['host']['eth0'],
+                        self.config.json['sat']['sr1']['host']['ip_addr']: self.config.json['sat']['sr1']['host']['eth0'],
+                        self.config.json['sat']['sr2']['host']['ip_addr']: self.config.json['sat']['sr2']['host']['eth0'],
+                        self.config.json['sat']['sr3']['host']['ip_addr']: self.config.json['sat']['sr3']['host']['eth0'],
+                        self.config.json['sat']['sr4']['host']['ip_addr']: self.config.json['sat']['sr4']['host']['eth0'],
+                        self.config.json['sat']['sr5']['host']['ip_addr']: self.config.json['sat']['sr5']['host']['eth0'],
+                        self.config.json['dc']['dc1']['host']['ip_addr']: self.config.json['dc']['dc1']['host']['eth0']}
         
-        self.dpid_table = {self.config.json['sat']['group1']['datapath']['dpid_d']: 'group1', 
+        self.dpid_table = {
+                                            self.config.json['sat']['group1']['datapath']['dpid_d']: 'group1', 
                                             self.config.json['sat']['group2']['datapath']['dpid_d']: 'group2', 
                                             self.config.json['sat']['group3']['datapath']['dpid_d']: 'group3',
+                                            self.config.json['sat']['group4']['datapath']['dpid_d']: 'group4',
+                                            self.config.json['sat']['group5']['datapath']['dpid_d']: 'group5',
                                             self.config.json['sat']['sr1']['datapath']['dpid_d']: 'sr1',
                                             self.config.json['sat']['sr2']['datapath']['dpid_d']: 'sr2',
                                             self.config.json['sat']['sr3']['datapath']['dpid_d']: 'sr3',
+                                            self.config.json['sat']['sr4']['datapath']['dpid_d']: 'sr4',
+                                            self.config.json['sat']['sr5']['datapath']['dpid_d']: 'sr5',
                                             self.config.json['dc']['dc1']['datapath']['dpid_d']: 'dc1'}
         
         self.monitor_dpid = [ self.config.json['sat'][node_name]['datapath']['dpid_d'] if self.check_class(node_name)=='sat' 
