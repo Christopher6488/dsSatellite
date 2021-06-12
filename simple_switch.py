@@ -39,7 +39,8 @@ class SimpleSwitch13(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
 
-        self.config_path =  './Config/11node.json'
+        self.logger.info('Enter Paragram!')
+        self.config_path =  '/home/ubuntu/ryu/ryu/app/dsSatellite/Config/11node.json'
         self.config = Config.Config(self.config_path)
 
         self.current_topo = nx.Graph()
@@ -50,12 +51,16 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.next_table = 1
         self.logger.setLevel(self.config.json["LOGGER_LEVEL"])
         
+        self.logger.info("CHECKPOINT 1")
+
         self.datapaths = {}
         self.lastCount = {}
         self.timeStamp=0
         self.speed_rec = {}
         self.update_time = self.config.json["update_time"]
         self.init_time = time.time()
+
+        self.logger.info("CHECKPOINT 2")
 
         self.monitor_thread = hub.spawn(self._monitor)
 
@@ -227,7 +232,7 @@ class SimpleSwitch13(app_manager.RyuApp):
             if time.mktime(dt.datetime.now().timetuple()) - current_time > self.config.json["minutes_interval"]:
                 current_time = time.mktime(dt.datetime.now().timetuple()) 
                 self.current_time += dt.timedelta(minutes=1)
-            hub.sleep(0.5)
+            hub.sleep(0.1)
     
     def _show_topo(self):
         plt.ion()
@@ -247,8 +252,8 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.logger.debug("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.logger.debug("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.logger.debug("_create_topo CALLED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        while len(self.datapaths) == 7:
-            # self.logger.info(self.current_time)
+        while len(self.datapaths) == 11:
+            self.logger.info(self.current_time)
             self.logger.info("Start Update!")
             self.current_topo = self.time_expand_topo.slice_topo(self.current_time)
 
@@ -262,7 +267,7 @@ class SimpleSwitch13(app_manager.RyuApp):
 
             self.last_time = self.current_time
             self.next_table = (3 - pow(-1, self.next_table)) / 2
-            hub.sleep(1)
+            hub.sleep(self.update_time)
     
     def clear_all_flow_tables(self,datapath):
         self.logger.debug("clear_all_flow_tables called!")

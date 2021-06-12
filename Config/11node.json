@@ -1,16 +1,16 @@
 {
-    "stk_path": "./sat_transfer",
+    "stk_path": "/home/ubuntu/ryu/ryu/app/dsSatellite/sat_11node",
     "enable_show_topo": true,
 
-    "enable_monitor": true,
+    "enable_monitor": false,
     "monitor_switch": ["sr1"],
     "LOGGER_LEVEL": "INFO",
 
     "meter":false,
     "bandwith" : 100,
 
-    "update_time": 5,
-    "minutes_interval":6000,
+    "update_time": 0.1,
+    "minutes_interval":10000,
 
     "transfer_threshold": 50,
 
@@ -130,7 +130,7 @@
             },
     
             "datapath": {
-                "dpid": "10",
+                "dpid": "a",
                 "dpid_d":10
             } 
         }

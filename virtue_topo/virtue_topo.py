@@ -24,7 +24,11 @@ class virtue_topo(nx.MultiGraph):
     
     def create_time_expand_network(self):
         for root, dirs, files in os.walk(self.stk_path):  
+            print("root: ", root)
+            print("dirs: ", dirs)
+            print("files: ", files)
             for file in files:
+                print('file', file)
                 node_name = file.replace(".csv", "")
                 for node in node_name.split('-'):
                     if 'group' in node :
@@ -36,7 +40,7 @@ class virtue_topo(nx.MultiGraph):
                     if node not in self.netnode:
                         self.netnode.append(node)
                 self.add_link(node_name.split('-')[0], node_name.split('-')[1], self.config.stk_path+'/'+file)
-        #print(list(self.nodes(data=True)))
+        print("list(self.nodes(data=True)): ", list(self.nodes(data=True)))
 
     def add_link(self, node0, node1, file_):
         f = np.loadtxt(file_, delimiter=',', skiprows=1, dtype=bytes).astype(str)
@@ -89,7 +93,7 @@ def show_topo(GG_):
     plt.pause(0.5)
 
 def main():
-    config_path =  '/home/ubuntu/ryu/ryu/app/dsSatellite/Config/config.json'
+    config_path =  '/home/ubuntu/ryu/ryu/app/dsSatellite/Config/11node.json'
     config = Config.Config(config_path)
    
     time_expand_network = create_virtue_topo(config)
@@ -103,5 +107,5 @@ def main():
     print('totally cost',time_end-time_start)
     show_topo(topo)
 
-# if __name__ == '__main__':
-#     main()
+if __name__ == '__main__':
+    main()
